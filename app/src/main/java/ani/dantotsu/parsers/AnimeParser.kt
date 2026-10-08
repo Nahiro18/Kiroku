@@ -3,13 +3,15 @@ package ani.dantotsu.parsers
 import android.net.Uri
 import ani.dantotsu.FileUrl
 import ani.dantotsu.R
-import ani.dantotsu.asyncMap
 import ani.dantotsu.currContext
 import ani.dantotsu.others.MalSyncBackup
 import ani.dantotsu.settings.saving.PrefManager
 import ani.dantotsu.tryWithSuspend
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.supervisorScope
 
 /**
  * An abstract class for creating a new Source
@@ -116,13 +118,17 @@ abstract class AnimeParser : BaseParser() {
         callback: (VideoExtractor) -> Unit
     ) {
         tryWithSuspend(true) {
-            loadVideoServers(episodeUrl, extra, sEpisode).asyncMap {
-                getVideoExtractor(it)?.apply {
-                    tryWithSuspend(true) {
-                        load()
+            supervisorScope {
+                loadVideoServers(episodeUrl, extra, sEpisode).map {
+                    async {
+                        getVideoExtractor(it)?.apply {
+                            tryWithSuspend(true) {
+                                load()
+                            }
+                            callback.invoke(this)
+                        }
                     }
-                    callback.invoke(this)
-                }
+                }.awaitAll()
             }
         }
     }

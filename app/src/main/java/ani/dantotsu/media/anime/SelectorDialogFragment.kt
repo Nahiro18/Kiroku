@@ -21,6 +21,7 @@ import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.viewModelScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import ani.dantotsu.BottomSheetDialogFragment
@@ -193,6 +194,10 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
                             ep.extractorCallback = {
                                 scope.launch {
                                     adapter.add(it)
+                                    binding.selectorProgressBar.visibility = View.GONE
+                                    if (adapter.itemCount == 1) {
+                                        media?.let { m -> model.preloadNextEpisode(m) }
+                                    }
                                     if (model.watchSources!!.isDownloadedSource(media?.selected!!.sourceIndex)) {
                                         adapter.performClick(0)
                                     }
@@ -206,9 +211,10 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
                                     )
                                 }
                             }
-                            scope.launch(Dispatchers.IO) {
-                                model.loadEpisodeVideos(ep, media!!.selected!!.sourceIndex)
+                            model.viewModelScope.launch(Dispatchers.IO) {
+                                model.loadEpisodeVideos(ep, media!!.selected!!.sourceIndex, post = false)
                                 withContext(Dispatchers.Main) {
+                                    if (!isAdded) return@withContext
                                     binding.selectorProgressBar.visibility = View.GONE
                                     if (adapter.itemCount == 0) {
                                         snackString(getString(R.string.stream_selection_empty))
@@ -268,6 +274,7 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
     @SuppressLint("UnsafeOptInUsageError")
     fun startExoplayer(media: Media) {
         prevEpisode = null
+        model.preloadNextEpisode(media)
 
         episode?.let { ep ->
             val video = ep.extractors?.find {

@@ -33,6 +33,7 @@ import ani.dantotsu.tryWithSuspend
 import ani.dantotsu.util.Logger
 import com.bumptech.glide.load.resource.bitmap.BitmapTransformation
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 
@@ -152,6 +153,34 @@ class MediaDetailsViewModel : ViewModel() {
 
     private var episode = MutableLiveData<Episode?>(null)
     fun getEpisode(): LiveData<Episode?> = episode
+
+    private val videoJobs = mutableMapOf<String, Job>()
+
+    fun loadEpisodeVideosAsync(ep: Episode, sourceIndex: Int) {
+        val key = "${ep.number}_$sourceIndex"
+        if (videoJobs[key]?.isActive == true) return
+        if (ep.allStreams && !ep.extractors.isNullOrEmpty()) return
+        videoJobs[key] = viewModelScope.launch(Dispatchers.IO) {
+            loadEpisodeVideos(ep, sourceIndex, post = false)
+        }
+    }
+
+    fun preloadNextEpisode(media: Media) {
+        val eps = media.anime?.episodes ?: return
+        val current = media.anime?.selectedEpisode ?: return
+        val keys = eps.keys.toList()
+        val idx = keys.indexOf(current)
+        if (idx == -1 || idx + 1 >= keys.size) return
+        val next = eps[keys[idx + 1]] ?: return
+        val selected = media.selected ?: return
+        if (next.allStreams && !next.extractors.isNullOrEmpty()) return
+        val key = "next_${next.number}_${selected.sourceIndex}"
+        if (videoJobs[key]?.isActive == true) return
+        videoJobs[key] = viewModelScope.launch(Dispatchers.IO) {
+            if (selected.server != null) loadEpisodeSingleVideo(next, selected, post = false)
+            else loadEpisodeVideos(next, selected.sourceIndex, post = false)
+        }
+    }
 
     suspend fun loadEpisodeVideos(ep: Episode, i: Int, post: Boolean = true, force: Boolean = false) {
         val link = ep.link ?: return
