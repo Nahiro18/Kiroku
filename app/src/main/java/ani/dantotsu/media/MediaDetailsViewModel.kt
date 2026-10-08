@@ -164,7 +164,7 @@ class MediaDetailsViewModel : ViewModel() {
         if (!loadingEpisodes.add(System.identityHashCode(ep))) return
         try {
             if (!ep.allStreams || ep.extractors.isNullOrEmpty()) {
-                val list = mutableListOf<VideoExtractor>()
+                val list: MutableList<VideoExtractor> = java.util.concurrent.CopyOnWriteArrayList()
                 ep.extractors = list
                 watchSources?.get(i)?.apply {
                     if (!post && !force && !allowsPreloading) return@apply

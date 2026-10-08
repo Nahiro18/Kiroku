@@ -372,9 +372,6 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
 
     private fun stopAddingToList() {
         episode?.extractorCallback = null
-        episode?.also {
-            it.extractors = it.extractors?.toMutableList()
-        }
     }
 
     private inner class ExtractorAdapter :
