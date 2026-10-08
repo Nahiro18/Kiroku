@@ -362,7 +362,10 @@ open class BottomSheetDialogFragment : BottomSheetDialogFragment() {
             if (immersiveMode) {
                 WindowInsetsControllerCompat(
                     window, window.decorView
-                ).hide(WindowInsetsCompat.Type.statusBars())
+                ).apply {
+                    systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    hide(WindowInsetsCompat.Type.systemBars())
+                }
             }
             if (this.resources.configuration.orientation != Configuration.ORIENTATION_PORTRAIT) {
                 val behavior = BottomSheetBehavior.from(requireView().parent as View)
