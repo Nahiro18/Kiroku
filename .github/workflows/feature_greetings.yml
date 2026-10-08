@@ -65,7 +65,7 @@ jobs:
           const issueNumber = context.payload.issue.number;
           const message = `
           **💡 Thank you for your feature request!**
-            Your request has been successfully submitted and is now under consideration. We value your input in shaping the future of ReDantotsu.
+            Your request has been successfully submitted and is now under consideration. We value your input in shaping the future of Kiroku.
 
           **📈 What to Expect Next**
           - Our team will review your request and assess its feasibility.

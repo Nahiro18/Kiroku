@@ -1,5 +1,5 @@
 name: ❓ Question
-description: Submit a question or query related to ReDantotsu
+description: Submit a question or query related to Kiroku
 labels: [question]
 body:
   - type: textarea
@@ -17,7 +17,7 @@ body:
     id: related-features
     attributes:
       label: Related Features (if applicable)
-      description: Mention any specific feature or section of ReDantotsu related to your question.
+      description: Mention any specific feature or section of Kiroku related to your question.
       placeholder: |
         Example: "Settings > Performance"
 

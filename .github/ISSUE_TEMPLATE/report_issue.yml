@@ -1,5 +1,5 @@
 name: 🐛 Issue Report
-description: Report a bug or problem in ReDantotsu
+description: Report a bug or problem in Kiroku
 labels: [bug]
 body:
   - type: textarea
@@ -49,8 +49,8 @@ body:
   - type: input
     id: dartotsu-version
     attributes:
-      label: ReDantotsu Version
-      description: Specify the version of ReDantotsu in which the issue occurred.
+      label: Kiroku Version
+      description: Specify the version of Kiroku in which the issue occurred.
       placeholder: |
         Example: "1.2.3"
     validations:
@@ -93,7 +93,7 @@ body:
           required: true
         - label: I have provided a clear and descriptive title.
           required: true
-        - label: I am using the **[latest](https://github.com/Nahiro18/ReDantotsu/releases/latest)** version of ReDantotsu. If not, I have provided a reason for not updating.
+        - label: I am using the **[latest](https://github.com/Nahiro18/Kiroku/releases/latest)** version of Kiroku. If not, I have provided a reason for not updating.
           required: true
         - label: I have updated all relevant extensions or dependencies.
           required: true

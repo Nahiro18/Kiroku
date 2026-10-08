@@ -3,7 +3,7 @@
 Last Updated: Aug 21, 2026
 
 ## Introduction
-This Privacy Policy describes how we collect, use, and handle your information when you use ReDantotsu (fork by Nahiro18, based on Dantotsu). We are committed to protecting your privacy and ensuring transparency about our data practices.
+This Privacy Policy describes how we collect, use, and handle your information when you use Kiroku (fork of ReDantotsu by Nahiro18, based on Dantotsu). We are committed to protecting your privacy and ensuring transparency about our data practices.
 
 ## Information We Collect
 
@@ -101,6 +101,6 @@ We may update this Privacy Policy from time to time. We will notify you of any c
 
 ## Contact Us
 If you have any questions about this Privacy Policy, please contact us via:
-- GitHub: [ReDantotsu Fork Issues](https://github.com/Nahiro18/ReDantotsu/issues) (original [Dantotsu Issues](https://github.com/rebelonion/Dantotsu/issues))
+- GitHub: [ReDantotsu Fork Issues](https://github.com/Nahiro18/Kiroku/issues) (original [Dantotsu Issues](https://github.com/rebelonion/Dantotsu/issues))
 - Discord: `https://discord.gg/GGdQumttZ` (fork) / "@rebelonion" (original)
 - AniList: "Nahiro18" (fork) / "rebelonion" (original)

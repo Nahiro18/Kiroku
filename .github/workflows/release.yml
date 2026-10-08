@@ -65,7 +65,7 @@ jobs:
       if: ${{ env.SKIP_BUILD != 'true' }}
       uses: actions/upload-artifact@v4
       with:
-          name: ReDantotsu
+          name: Kiroku
           retention-days: 5
           compression-level: 9
           path: "app/build/outputs/apk/fdroid/alpha/*.apk"
@@ -113,7 +113,7 @@ jobs:
         done
         CONTENT="**RELEASE ${RELEASE_TAG}** - **Whats New?** ${RELEASE_URL}"$'\n\n'"${ASSET_LIST}"$'\n\n'"Report bugs in <#1539645809547550782>"
         PAYLOAD=$(jq -n \
-          --arg username "ReDantotsu Releases" \
+          --arg username "Kiroku Releases" \
           --arg title "\ud83c\udf89 New Release: $RELEASE_TAG" \
           --arg content "$CONTENT" \
           --arg footer "Version $RELEASE_TAG" \
