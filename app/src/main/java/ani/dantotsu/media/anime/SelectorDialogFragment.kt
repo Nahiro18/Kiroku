@@ -195,9 +195,6 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
                                 scope.launch {
                                     adapter.add(it)
                                     binding.selectorProgressBar.visibility = View.GONE
-                                    if (adapter.itemCount == 1) {
-                                        media?.let { m -> model.preloadNextEpisode(m) }
-                                    }
                                     if (model.watchSources!!.isDownloadedSource(media?.selected!!.sourceIndex)) {
                                         adapter.performClick(0)
                                     }
@@ -274,7 +271,6 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
     @SuppressLint("UnsafeOptInUsageError")
     fun startExoplayer(media: Media) {
         prevEpisode = null
-        model.preloadNextEpisode(media)
 
         episode?.let { ep ->
             val video = ep.extractors?.find {
