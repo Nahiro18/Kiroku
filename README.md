@@ -17,7 +17,6 @@
     <img src="https://img.shields.io/badge/License-UPL-blue?style=for-the-badge&logo=open-source-initiative&logoColor=white" alt="License: UPL">
   </a>
   <img src="https://img.shields.io/badge/Android-14%2B-green?style=for-the-badge&logo=android" alt="Android 14+">
-  <img src="https://komarev.com/ghpvc/?username=Nahiro18-ReDantotsu&style=for-the-badge&label=Visits" alt="Visits">
 </p>
 
 > **✨ The Ultimate Anime & Manga Experience for Android**
