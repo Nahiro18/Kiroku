@@ -22,7 +22,7 @@
         <item name="popupMenuStyle">@style/MyPopup</item>
         <item name="android:windowSplashScreenAnimationDuration" tools:targetApi="s">500</item>
         <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="s">
-            @drawable/anim_splash
+            @drawable/splashscreen_anim
         </item>
         <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="o_mr1">shortEdges
         </item>
