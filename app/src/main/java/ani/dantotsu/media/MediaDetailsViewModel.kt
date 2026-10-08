@@ -153,25 +153,36 @@ class MediaDetailsViewModel : ViewModel() {
     private var episode = MutableLiveData<Episode?>(null)
     fun getEpisode(): LiveData<Episode?> = episode
 
+    private val loadingEpisodes = java.util.concurrent.ConcurrentHashMap.newKeySet<Int>()
+
+    fun isEpisodeLoading(ep: Episode): Boolean {
+        return loadingEpisodes.contains(System.identityHashCode(ep))
+    }
+
     suspend fun loadEpisodeVideos(ep: Episode, i: Int, post: Boolean = true, force: Boolean = false) {
         val link = ep.link ?: return
-        if (!ep.allStreams || ep.extractors.isNullOrEmpty()) {
-            val list = mutableListOf<VideoExtractor>()
-            ep.extractors = list
-            watchSources?.get(i)?.apply {
-                if (!post && !force && !allowsPreloading) return@apply
-                ep.sEpisode?.let {
-                    loadByVideoServers(link, ep.extra, it) { extractor ->
-                        if (extractor.videos.isNotEmpty()) {
-                            list.add(extractor)
-                            ep.extractorCallback?.invoke(extractor)
+        if (!loadingEpisodes.add(System.identityHashCode(ep))) return
+        try {
+            if (!ep.allStreams || ep.extractors.isNullOrEmpty()) {
+                val list = mutableListOf<VideoExtractor>()
+                ep.extractors = list
+                watchSources?.get(i)?.apply {
+                    if (!post && !force && !allowsPreloading) return@apply
+                    ep.sEpisode?.let {
+                        loadByVideoServers(link, ep.extra, it) { extractor ->
+                            if (extractor.videos.isNotEmpty()) {
+                                list.add(extractor)
+                                ep.extractorCallback?.invoke(extractor)
+                            }
                         }
                     }
+                    ep.extractorCallback = null
+                    if (list.isNotEmpty())
+                        ep.allStreams = true
                 }
-                ep.extractorCallback = null
-                if (list.isNotEmpty())
-                    ep.allStreams = true
             }
+        } finally {
+            loadingEpisodes.remove(System.identityHashCode(ep))
         }
 
 
@@ -205,22 +216,27 @@ class MediaDetailsViewModel : ViewModel() {
         selected: Selected,
         post: Boolean = true
     ): Boolean {
-        if (ep.extractors.isNullOrEmpty()) {
+        if (!loadingEpisodes.add(System.identityHashCode(ep))) return true
+        try {
+            if (ep.extractors.isNullOrEmpty()) {
 
-            val server = selected.server ?: return false
-            val link = ep.link ?: return false
+                val server = selected.server ?: return false
+                val link = ep.link ?: return false
 
-            ep.extractors = mutableListOf(watchSources?.get(selected.sourceIndex)?.let {
-                selected.sourceIndex = selected.sourceIndex
-                if (!post && !it.allowsPreloading) null
-                else ep.sEpisode?.let { it1 ->
-                    it.loadSingleVideoServer(
-                        server, link, ep.extra,
-                        it1, post
-                    )
-                }
-            } ?: return false)
-            ep.allStreams = false
+                ep.extractors = mutableListOf(watchSources?.get(selected.sourceIndex)?.let {
+                    selected.sourceIndex = selected.sourceIndex
+                    if (!post && !it.allowsPreloading) null
+                    else ep.sEpisode?.let { it1 ->
+                        it.loadSingleVideoServer(
+                            server, link, ep.extra,
+                            it1, post
+                        )
+                    }
+                } ?: return false)
+                ep.allStreams = false
+            }
+        } finally {
+            loadingEpisodes.remove(System.identityHashCode(ep))
         }
         if (post) {
             episode.postValue(ep)

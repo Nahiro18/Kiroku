@@ -61,6 +61,7 @@ import ani.dantotsu.util.customAlertDialog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -162,12 +163,14 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
                                 }
                             }
                             scope.launch {
-                                if (withContext(Dispatchers.IO) {
-                                        !model.loadEpisodeSingleVideo(
-                                            ep,
-                                            media!!.selected!!
-                                        )
-                                    }) fail()
+                                if (!model.isEpisodeLoading(ep)) {
+                                    if (withContext(Dispatchers.IO) {
+                                            !model.loadEpisodeSingleVideo(
+                                                ep,
+                                                media!!.selected!!
+                                            )
+                                        }) fail()
+                                }
                             }
                         } else load()
                     } else {
@@ -191,10 +194,14 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
                         val adapter = ExtractorAdapter()
                         binding.selectorRecyclerView.adapter = adapter
                         if (!ep.allStreams) {
+                            adapter.addAll(ep.extractors)
+                            if (adapter.itemCount > 0) {
+                                binding.selectorProgressBar.visibility = View.GONE
+                            }
                             ep.extractorCallback = {
                                 scope.launch {
                                     adapter.add(it)
-                                    binding.selectorProgressBar.visibility = View.GONE
+                                    _binding?.selectorProgressBar?.visibility = View.GONE
                                     if (model.watchSources!!.isDownloadedSource(media?.selected!!.sourceIndex)) {
                                         adapter.performClick(0)
                                     }
@@ -209,11 +216,14 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
                                 }
                             }
                             model.viewModelScope.launch(Dispatchers.IO) {
-                                model.loadEpisodeVideos(ep, media!!.selected!!.sourceIndex, post = false)
+                                if (!model.isEpisodeLoading(ep)) {
+                                    model.loadEpisodeVideos(ep, media!!.selected!!.sourceIndex, post = false)
+                                }
+                                while (model.isEpisodeLoading(ep)) delay(500)
                                 withContext(Dispatchers.Main) {
-                                    if (!isAdded) return@withContext
-                                    binding.selectorProgressBar.visibility = View.GONE
-                                    if (adapter.itemCount == 0) {
+                                    val b = _binding ?: return@withContext
+                                    b.selectorProgressBar.visibility = View.GONE
+                                    if (adapter.itemCount == 0 && ep.extractors.isNullOrEmpty()) {
                                         snackString(getString(R.string.stream_selection_empty))
                                         tryWith {
                                             dismiss()
@@ -392,7 +402,7 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
         override fun getItemCount(): Int = links.size
 
         fun add(videoExtractor: VideoExtractor) {
-            if (videoExtractor.videos.isNotEmpty()) {
+            if (videoExtractor.videos.isNotEmpty() && !links.contains(videoExtractor)) {
                 links.add(videoExtractor)
                 notifyItemInserted(links.size - 1)
             }
