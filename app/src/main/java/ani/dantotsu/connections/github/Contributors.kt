@@ -13,18 +13,24 @@ import kotlinx.serialization.json.decodeFromJsonElement
 class Contributors {
 
     data class DeveloperSections(
-        val redantotsuDevs: Array<Developer>,
+        val kirokuDevs: Array<Developer>,
         val dantotsuDevs: Array<Developer>
     )
 
     suspend fun getContributorSections(): DeveloperSections {
-        // Kiroku developers (Nahiro18 - fork maintainer, based on AsrOfficialDev)
-        val redantotsuDevs = arrayOf(
+        // Kiroku developers (Nahiro18 - owner, based on AsrOfficialDev)
+        val kirokuDevs = arrayOf(
             Developer(
                 "Nahiro18",
                 "https://github.com/Nahiro18.png",
-                "Kiroku Fork Maintainer",
+                "Developer Maintainer",
                 "https://github.com/Nahiro18"
+            ),
+            Developer(
+                "saizenasato",
+                "https://github.com/saizenasato.png",
+                "Helper Maintainer",
+                "https://github.com/saizenasato"
             ),
             Developer(
                 "AsrOfficialDev",
@@ -107,7 +113,7 @@ class Contributors {
                 }
             
             // Add GitHub contributors that aren't already in the list
-            val existingNames = dantotsuDevs.map { it.name.lowercase() }.toSet() + setOf("asrofficialdev", "nahiro18")
+            val existingNames = dantotsuDevs.map { it.name.lowercase() }.toSet() + setOf("asrofficialdev", "nahiro18", "saizenasato")
             
             res.forEach {
                 if (it.login.lowercase() in existingNames || it.login == "SunglassJerry") return@forEach
@@ -131,13 +137,13 @@ class Contributors {
             e.printStackTrace()
         }
         
-        return DeveloperSections(redantotsuDevs, dantotsuDevs)
+        return DeveloperSections(kirokuDevs, dantotsuDevs)
     }
 
     // Keep old method for backward compatibility
     suspend fun getContributors(): Array<Developer> {
         val sections = getContributorSections()
-        return sections.redantotsuDevs + sections.dantotsuDevs
+        return sections.kirokuDevs + sections.dantotsuDevs
     }
 
 

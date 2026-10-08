@@ -956,7 +956,7 @@ Non quae tempore quo provident laudantium qui illo dolor vel quia dolor et exerc
     <string name="check_app_updates_desc">Check Github for app updates</string>
     <string name="share_username_in_crash_reports_desc">Share username in crash reports</string>
     <string name="devs_desc">Kiroku/Dantotsu\'s very own unpaid labours </string>
-    <string name="redantotsu_section">Kiroku</string>
+    <string name="kiroku_section">Kiroku</string>
     <string name="dantotsu_section">Dantotsu</string>
     <string name="forks_desc">More like Dantotsu/Kiroku</string>
     <string name="disclaimer_desc">Something to keep in mind</string>

@@ -40,9 +40,9 @@ class DevelopersDialogFragment : BottomSheetDialogFragment() {
             // Build the items list with sections
             val items = mutableListOf<DeveloperItem>()
             
-            // Add ReDantotsu section
-            items.add(DeveloperItem.Section(getString(R.string.redantotsu_section)))
-            sections.redantotsuDevs.forEach {
+            // Add Kiroku section
+            items.add(DeveloperItem.Section(getString(R.string.kiroku_section)))
+            sections.kirokuDevs.forEach {
                 items.add(DeveloperItem.Dev(it))
             }
             
