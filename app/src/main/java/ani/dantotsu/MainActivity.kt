@@ -373,7 +373,7 @@ class MainActivity : AppCompatActivity() {
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !(PrefManager.getVal(PrefName.AllowOpeningLinks) as Boolean)) {
                 CustomBottomDialog.newInstance().apply {
-                    title = "Allow ReDantotsu to automatically open Anilist & MAL Links?"
+                    title = "Allow Kiroku to automatically open Anilist & MAL Links?"
                     addView(TextView(this@MainActivity).apply {
                         Markwon.builder(this@MainActivity).usePlugin(SoftBreakAddsNewLinePlugin.create()).build().setMarkdown(this, "Open settings & click +Add Links & select Anilist & Mal urls")
                     })

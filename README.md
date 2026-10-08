@@ -1,14 +1,14 @@
-# ReDantotsu
+# Kiroku
 
 <p align="center">
-  <a href="https://github.com/Nahiro18/ReDantotsu/releases/latest">
-    <img src="https://img.shields.io/github/v/release/Nahiro18/ReDantotsu?style=for-the-badge&logo=github&color=00bfff&label=Current%20Release" alt="Current Release">
+  <a href="https://github.com/Nahiro18/Kiroku/releases/latest">
+    <img src="https://img.shields.io/github/v/release/Nahiro18/Kiroku?style=for-the-badge&logo=github&color=00bfff&label=Current%20Release" alt="Current Release">
   </a>
-  <a href="https://github.com/Nahiro18/ReDantotsu/releases">
-    <img src="https://img.shields.io/github/downloads/Nahiro18/ReDantotsu/total?style=for-the-badge&logo=github&color=2ea44f&label=Total%20Downloads" alt="Total Downloads">
+  <a href="https://github.com/Nahiro18/Kiroku/releases">
+    <img src="https://img.shields.io/github/downloads/Nahiro18/Kiroku/total?style=for-the-badge&logo=github&color=2ea44f&label=Total%20Downloads" alt="Total Downloads">
   </a>
-  <a href="https://github.com/Nahiro18/ReDantotsu/stargazers">
-    <img src="https://img.shields.io/github/stars/Nahiro18/ReDantotsu?style=for-the-badge&logo=github&color=yellow&label=Stars" alt="Stars">
+  <a href="https://github.com/Nahiro18/Kiroku/stargazers">
+    <img src="https://img.shields.io/github/stars/Nahiro18/Kiroku?style=for-the-badge&logo=github&color=yellow&label=Stars" alt="Stars">
   </a>
   <a href="https://discord.gg/GGdQumttZ">
     <img src="https://img.shields.io/badge/Discord-Join%20Us-7289da?style=for-the-badge&logo=discord&logoColor=white" alt="Discord">
@@ -17,23 +17,23 @@
     <img src="https://img.shields.io/badge/License-UPL-blue?style=for-the-badge&logo=open-source-initiative&logoColor=white" alt="License: UPL">
   </a>
   <img src="https://img.shields.io/badge/Android-14%2B-green?style=for-the-badge&logo=android" alt="Android 14+">
-  <img src="https://komarev.com/ghpvc/?username=Nahiro18-ReDantotsu&style=for-the-badge&label=Visits" alt="Visits">
+  <img src="https://komarev.com/ghpvc/?username=Nahiro18-Kiroku&style=for-the-badge&label=Visits" alt="Visits">
 </p>
 
 > **✨ The Ultimate Anime & Manga Experience for Android**
 
-> 🔔 **Join the ReDantotsu fork's Discord server!** Get updates, support, and the latest news here.
+> 🔔 **Join the Kiroku fork's Discord server!** Get updates, support, and the latest news here.
 
 <p align="center">
   <a href="https://discord.gg/GGdQumttZ">
-    <img src="https://img.shields.io/badge/Join%20the%20ReDantotsu%20fork's%20Discord-7289da?style=for-the-badge&logo=discord&logoColor=white" alt="Join the ReDantotsu fork's Discord">
+    <img src="https://img.shields.io/badge/Join%20the%20Kiroku%20fork's%20Discord-7289da?style=for-the-badge&logo=discord&logoColor=white" alt="Join the Kiroku fork's Discord">
   </a>
 </p>
 
-ReDantotsu is a premium fan remake of the beloved Dantotsu application. I've taken the robust foundation of the original app and completely reimagined it, introducing a modern UI, expanding core functionality, and implementing crucial stability fixes to deliver the definitive anime and manga tracking experience.
+Kiroku is a fork of the [ReDantotsu](https://github.com/AsrOfficialDev/ReDantotsu) app, which itself is a premium fan remake of the beloved Dantotsu application. On top of that robust foundation — modern UI, expanded functionality and crucial stability fixes — Kiroku adds progressive video-server loading (fastest servers first, no waiting for all of them) to deliver the definitive anime and manga tracking experience.
 
 ## 📋 Table of Contents
-- [What's New in ReDantotsu](#-whats-new-in-redantotsu)
+- [What's New in Kiroku](#-whats-new-in-kiroku)
 - [Screenshots](#-screenshots)
 - [Installation](#-installation)
 - [Building from Source](#building-from-source)
@@ -43,11 +43,12 @@ ReDantotsu is a premium fan remake of the beloved Dantotsu application. I've tak
 - [Disclaimer](#disclaimer)
 - [Contributing](#-contributing)
 
-## ✨ What's New in ReDantotsu
+## ✨ What's New in Kiroku
 
-We've extensively upgraded the app far beyond a simple visual reskin. Here is what makes ReDantotsu the best version yet:
+We've extensively upgraded the app far beyond a simple visual reskin. Here is what makes Kiroku the best version yet:
 
 ### 🌟 Brand New Features
+- **Progressive Server Loading** - Video servers appear fastest-first as they resolve, with background loading that continues even after you pick one.
 - **Expanded Home Experience** - A redesigned home screen featuring dedicated Anime and Manga sections for better content discovery.
 - **Source Deduplication** - Intelligent handling of extensions to eliminate duplicate entries and streamline your library.
 - **Enhanced Integration** - Upgraded and fully stable AniList login utilizing modern dashboard redirect URIs, alongside MyAnimeList rating support.
@@ -70,7 +71,7 @@ We've extensively upgraded the app far beyond a simple visual reskin. Here is wh
 
 ## 📥 Installation
 
-1. Download the latest APK from the [Releases](https://github.com/Nahiro18/ReDantotsu/releases) page.
+1. Download the latest APK from the [Releases](https://github.com/Nahiro18/Kiroku/releases) page.
 2. Enable "Install from unknown sources" if prompted by your device.
 3. Install and enjoy!
 
@@ -78,8 +79,8 @@ We've extensively upgraded the app far beyond a simple visual reskin. Here is wh
 
 ```bash
 # Clone the repository
-git clone https://github.com/Nahiro18/ReDantotsu.git
-cd ReDantotsu
+git clone https://github.com/Nahiro18/Kiroku.git
+cd Kiroku
 
 # Build debug APK
 ./gradlew assembleGoogleAlpha
@@ -110,6 +111,9 @@ cd ReDantotsu
 - **Liquid Glass Effect:** Based on iOS 26 design language
 - **Backdrop Library:** [backdrop](https://github.com/kyant0/backdrop) by kyant0
 
+### Kiroku
+- **Fork Maintainer:** Nahiro18 — fork of ReDantotsu with progressive server loading and Kiroku branding
+
 ## 📜 License <a name="license"></a>
 
 This project is licensed under the **Unabandon Public License (UPL)**, which extends GPLv3.
@@ -124,8 +128,8 @@ This project is licensed under the **Unabandon Public License (UPL)**, which ext
 
 ## ⚠️ Disclaimer <a name="disclaimer"></a>
 
-- ReDantotsu does not host any content. All streaming sources come from 3rd party extensions.
-- ReDantotsu is not affiliated with AniList, MyAnimeList, or any content providers.
+- Kiroku does not host any content. All streaming sources come from 3rd party extensions.
+- Kiroku is not affiliated with AniList, MyAnimeList, or any content providers.
 - All anime/manga information is sourced from public APIs.
 - The developers are not responsible for any misuse of the app.
 
@@ -142,5 +146,5 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ---
 
 <p align="center">
-  <b>ReDantotsu</b> • A Premium Anime & Manga Client ✨
+  <b>Kiroku</b> • A Premium Anime & Manga Client ✨
 </p>

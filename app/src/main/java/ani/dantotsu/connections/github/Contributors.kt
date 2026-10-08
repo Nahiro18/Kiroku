@@ -18,12 +18,12 @@ class Contributors {
     )
 
     suspend fun getContributorSections(): DeveloperSections {
-        // ReDantotsu developers (Nahiro18 - fork maintainer, based on AsrOfficialDev)
+        // Kiroku developers (Nahiro18 - fork maintainer, based on AsrOfficialDev)
         val redantotsuDevs = arrayOf(
             Developer(
                 "Nahiro18",
                 "https://github.com/Nahiro18.png",
-                "ReDantotsu Fork Maintainer",
+                "Kiroku Fork Maintainer",
                 "https://github.com/Nahiro18"
             ),
             Developer(
