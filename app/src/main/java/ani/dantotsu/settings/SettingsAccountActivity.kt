@@ -216,10 +216,15 @@ class SettingsAccountActivity : AppCompatActivity() {
                     desc = getString(R.string.enable_rpc_desc),
                     icon = R.drawable.interests_24,
                     isChecked = PrefManager.getVal(PrefName.rpcEnabled),
-                    switch = { isChecked, _ ->
+                    switch = { isChecked, b ->
+                        if (isChecked && Discord.token == null) {
+                            Discord.warning(context).show(supportFragmentManager, "dialog")
+                            b.settingsButton.isChecked = false
+                            PrefManager.setVal(PrefName.rpcEnabled, false)
+                            return@Settings
+                        }
                         PrefManager.setVal(PrefName.rpcEnabled, isChecked)
-                    },
-                    isVisible = Discord.token != null
+                    }
                 ),
                 Settings(
                     type = 1,
