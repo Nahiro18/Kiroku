@@ -73,7 +73,7 @@ class SearchActivity : AppCompatActivity() {
         screenWidth = resources.displayMetrics.run { widthPixels / density }
 
         binding.searchRecyclerView.updatePaddingRelative(
-            top = statusBarHeight + 104f.px,
+            top = statusBarHeight + 100f.px,
             bottom = navBarHeight + 80f.px
         )
 
