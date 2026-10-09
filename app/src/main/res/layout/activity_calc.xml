@@ -10,7 +10,7 @@
         android:id="@+id/mainContainer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginTop="64dp"
+        android:layout_marginTop="112dp"
         android:layout_gravity="bottom|center_horizontal"
         android:background="@color/bg"
         android:orientation="vertical"

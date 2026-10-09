@@ -13,6 +13,7 @@
         android:clipToPadding="false"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
+        android:paddingTop="112dp"
         android:paddingBottom="128dp"
         tools:itemCount="1"
         tools:listitem="@layout/item_search_header" />
