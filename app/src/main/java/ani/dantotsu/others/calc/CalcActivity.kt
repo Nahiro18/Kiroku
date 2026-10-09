@@ -42,7 +42,7 @@ class CalcActivity : AppCompatActivity() {
         ThemeManager(this).applyTheme()
         binding = ActivityCalcBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        binding.calcBack.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
+        binding.calcBack?.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
         binding.root.doOnAttach {
             initActivity(this)
             binding.displayContainer.updateLayoutParams<ViewGroup.MarginLayoutParams> {
