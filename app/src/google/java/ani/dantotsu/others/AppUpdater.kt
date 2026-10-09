@@ -101,11 +101,14 @@ object AppUpdater {
         if (post) snackString(currContext()?.getString(R.string.checking_for_update))
         val repo = activity.getString(R.string.repo)
         tryWithSuspend {
-            val (md, version) = fetchUpdateInfo(repo, BuildConfig.DEBUG) ?: return@tryWithSuspend
+            val (md, version) = fetchUpdateInfo(repo, BuildConfig.DEBUG) ?: run {
+                if (post) snackString(currContext()?.getString(R.string.failed_to_load))
+                return@tryWithSuspend
+            }
 
             Logger.log("Git Version : $version")
             val dontShow = PrefManager.getCustomVal("dont_ask_for_update_$version", false)
-            if (compareVersion(version) && !dontShow && !activity.isDestroyed) activity.runOnUiThread {
+            if (compareVersion(version) && (!dontShow || post) && !activity.isDestroyed) activity.runOnUiThread {
                 CustomBottomDialog.newInstance().apply {
                     setTitleText(
                         "${if (BuildConfig.DEBUG) "Beta " else ""}Update " + currContext()!!.getString(

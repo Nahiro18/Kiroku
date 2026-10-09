@@ -67,6 +67,7 @@ class ListActivity : AppCompatActivity() {
             }
         }
         setContentView(binding.root)
+        binding.listBack.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
 
         val anime = intent.getBooleanExtra("anime", true)
         binding.listTitle.text = getString(

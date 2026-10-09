@@ -68,6 +68,7 @@ class SearchActivity : AppCompatActivity() {
         ThemeManager(this).applyTheme()
         binding = ActivitySearchBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        binding.searchBack.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
         initActivity(this)
         screenWidth = resources.displayMetrics.run { widthPixels / density }
 

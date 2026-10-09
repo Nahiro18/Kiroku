@@ -46,6 +46,7 @@ class ReviewViewActivity : AppCompatActivity() {
             bottomMargin += navBarHeight
         }
         setContentView(binding.root)
+        binding.reviewViewBack.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
         review = intent.getSerializableExtra("review") as Query.Review
         binding.userName.text = review.user?.name
         binding.userAvatar.loadImage(review.user?.avatar?.medium)

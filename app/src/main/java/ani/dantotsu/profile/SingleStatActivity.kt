@@ -18,6 +18,7 @@ class SingleStatActivity : AppCompatActivity() {
         initActivity(this)
         binding = ActivitySingleStatBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        binding.singleStatBack.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
         val chartOptions = chartOptions
         if (chartOptions != null) {
             chartOptions.chart?.backgroundColor = getThemeColor(android.R.attr.windowBackground)

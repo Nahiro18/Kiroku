@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.updateLayoutParams
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import ani.dantotsu.BuildConfig
 import ani.dantotsu.R
@@ -15,6 +16,7 @@ import ani.dantotsu.client
 import ani.dantotsu.databinding.ActivitySettingsAboutBinding
 import ani.dantotsu.initActivity
 import ani.dantotsu.navBarHeight
+import ani.dantotsu.others.AppUpdater
 import ani.dantotsu.others.CustomBottomDialog
 import ani.dantotsu.restartApp
 import ani.dantotsu.settings.saving.PrefManager
@@ -55,6 +57,18 @@ class SettingsAboutActivity : AppCompatActivity() {
                             startActivity(Intent(context, FAQActivity::class.java))
                         },
                         isActivity = true
+                    ),
+                    Settings(
+                        type = 1,
+                        name = getString(R.string.check_now),
+                        desc = getString(R.string.check_now_desc),
+                        icon = R.drawable.ic_round_sync_24,
+                        onClick = {
+                            lifecycleScope.launch(Dispatchers.IO) {
+                                AppUpdater.check(context, true)
+                            }
+                        },
+                        isVisible = !BuildConfig.FLAVOR.contains("fdroid")
                     ),
                     Settings(
                         type = 2,

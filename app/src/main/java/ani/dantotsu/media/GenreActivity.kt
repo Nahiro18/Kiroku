@@ -31,6 +31,7 @@ class GenreActivity : AppCompatActivity() {
         ThemeManager(this).applyTheme()
         binding = ActivityGenreBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        binding.genreBack.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
         initActivity(this)
 
         binding.genreContainer.updateLayoutParams<ViewGroup.MarginLayoutParams> { topMargin += statusBarHeight;bottomMargin += navBarHeight }

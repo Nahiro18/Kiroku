@@ -41,6 +41,7 @@ class MediaListViewActivity : AppCompatActivity() {
         }
 
         setContentView(binding.root)
+        binding.mediaListBack.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
 
         val primaryColor = getThemeColor(com.google.android.material.R.attr.colorSurface)
         val primaryTextColor = getThemeColor(com.google.android.material.R.attr.colorPrimary)

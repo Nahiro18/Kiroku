@@ -40,6 +40,7 @@ class ExtensionsActivity : AppCompatActivity() {
         binding = ActivityExtensionsBinding.inflate(layoutInflater)
         setContentView(binding.root)
         initActivity(this)
+        binding.extensionsBack.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
         AndroidBug5497Workaround.assistActivity(this) {
             if (it) {
                 binding.searchView.updateLayoutParams<ViewGroup.MarginLayoutParams> {

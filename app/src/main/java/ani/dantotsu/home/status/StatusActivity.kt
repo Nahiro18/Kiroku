@@ -32,6 +32,7 @@ class StatusActivity : AppCompatActivity(), StoriesCallback {
         initActivity(this)
         binding = ActivityStatusBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        binding.statusBack.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
         activity = user
         position = intent.getIntExtra("position", -1)
         binding.root.updateLayoutParams<ViewGroup.MarginLayoutParams> {

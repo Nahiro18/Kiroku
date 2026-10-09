@@ -516,6 +516,8 @@
     <string name="deleted_from_list">Deleted from List</string>
     <string name="no_list_id">No List ID found…</string>
     <string name="checking_for_update">Checking for Update</string>
+    <string name="check_now">Check Now</string>
+    <string name="check_now_desc">Manually check Github for app updates</string>
     <string name="dont_show_again">Don\'t show again for version %1$s</string>
     <string name="no_update_found">No Update Found</string>
     <string name="downloading_update">Downloading Update %1$s</string>
