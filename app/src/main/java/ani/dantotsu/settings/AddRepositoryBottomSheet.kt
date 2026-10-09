@@ -56,6 +56,7 @@ class RepoItem(
             .removePrefix("https://raw.githubusercontent.com/")
             .replace("index.min.json", "")
             .replace("plugins.min.json", "")
+            .replace("index.pb", "")
             .removeSuffix("/")
     }
 }
@@ -140,9 +141,9 @@ class AddRepositoryBottomSheet : BottomSheetDialogFragment() {
 
     private fun isValidUrl(input: String): String? {
         if (input.startsWith("http://") || input.startsWith("https://")) {
-            val validEndings = listOf("index.min.json", "plugins.min.json")
+            val validEndings = listOf("index.min.json", "plugins.min.json", "index.pb")
             if (!validEndings.any { input.removeSuffix("/").endsWith(it) }) {
-                return "URL must end with index.min.json or plugins.min.json"
+                return "URL must end with index.min.json, plugins.min.json or index.pb"
             }
             return null
         }

@@ -10,7 +10,7 @@
   <a href="https://github.com/Nahiro18/Kiroku/stargazers">
     <img src="https://img.shields.io/github/stars/Nahiro18/Kiroku?style=for-the-badge&logo=github&color=yellow&label=Stars" alt="Stars">
   </a>
-  <a href="https://discord.gg/GGdQumttZ">
+  <a href="https://discord.gg/H8TFFnQnGg">
     <img src="https://img.shields.io/badge/Discord-Join%20Us-7289da?style=for-the-badge&logo=discord&logoColor=white" alt="Discord">
   </a>
   <a href="./LICENSE.md">
@@ -25,7 +25,7 @@
 > 🔔 **Join the Kiroku fork's Discord server!** Get updates, support, and the latest news here.
 
 <p align="center">
-  <a href="https://discord.gg/GGdQumttZ">
+  <a href="https://discord.gg/H8TFFnQnGg">
     <img src="https://img.shields.io/badge/Join%20the%20Kiroku%20fork's%20Discord-7289da?style=for-the-badge&logo=discord&logoColor=white" alt="Join the Kiroku fork's Discord">
   </a>
 </p>
