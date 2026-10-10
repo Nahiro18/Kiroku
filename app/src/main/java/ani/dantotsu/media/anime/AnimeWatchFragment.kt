@@ -223,7 +223,7 @@ class AnimeWatchFragment : Fragment() {
                             awaitAll(kitsuEpisodes, anifyEpisodes, fillerEpisodes)
                         }
                         var waits = 0
-                        while (!AnimeSources.isInitialized && waits < 40) {
+                        while (!AnimeSources.isInitialized && waits < 8) {
                             delay(250)
                             waits++
                         }

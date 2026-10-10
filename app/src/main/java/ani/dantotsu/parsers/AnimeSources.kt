@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.first
 object AnimeSources : WatchSources() {
     override var list: List<Lazier<BaseParser>> = emptyList()
     var pinnedAnimeSources: List<String> = emptyList()
+    @Volatile
     var isInitialized = false
 
     suspend fun init(fromExtensions: StateFlow<List<AnimeExtension.Installed>>) {

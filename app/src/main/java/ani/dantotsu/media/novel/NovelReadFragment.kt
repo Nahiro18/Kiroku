@@ -204,7 +204,7 @@ open class NovelReadFragment : Fragment(), ScanlatorSelectionListener {
                             if (offline) media.selected!!.sourceIndex =
                                 model.novelSources!!.list.lastIndex
                             var waits = 0
-                            while (!NovelSources.isInitialized && waits < 40) {
+                            while (!NovelSources.isInitialized && waits < 8) {
                                 delay(250)
                                 waits++
                             }

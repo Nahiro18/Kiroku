@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.first
 object NovelSources : NovelReadSources() {
     override var list: List<Lazier<BaseParser>> = emptyList()
     var pinnedNovelSources: List<String> = emptyList()
+    @Volatile
     var isInitialized = false
 
     suspend fun init(
