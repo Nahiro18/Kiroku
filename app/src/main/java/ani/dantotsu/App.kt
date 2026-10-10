@@ -111,13 +111,13 @@ class App : Application() {
         applicationScope.launch {
             animeExtensionManager = Injekt.get()
             animeExtensionManager.findAvailableExtensions()
-            Logger.log("Anime Extensions: ${animeExtensionManager.installedExtensionsFlow.first()}")
+            Logger.log("Anime Extensions: ${animeExtensionManager.installedExtensionsFlow.first().map { it.name }}")
             AnimeSources.init(animeExtensionManager.installedExtensionsFlow)
         }
         applicationScope.launch {
             mangaExtensionManager = Injekt.get()
             mangaExtensionManager.findAvailableExtensions()
-            Logger.log("Manga Extensions: ${mangaExtensionManager.installedExtensionsFlow.first()}")
+            Logger.log("Manga Extensions: ${mangaExtensionManager.installedExtensionsFlow.first().map { it.name }}")
             MangaSources.init(mangaExtensionManager.installedExtensionsFlow)
         }
         applicationScope.launch {

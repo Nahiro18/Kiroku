@@ -49,7 +49,11 @@ object Logger {
 
     private fun location(): String {
         val trace = Thread.currentThread().stackTrace.firstOrNull {
-            !it.className.startsWith("ani.dantotsu.util.Logger") && !it.className.startsWith("java.lang.Thread")
+            val n = it.className
+            !n.startsWith("ani.dantotsu.util.Logger") &&
+                !n.startsWith("java.lang.Thread") &&
+                !n.startsWith("dalvik.system.VMStack") &&
+                !n.startsWith("kotlin.coroutines.jvm.internal")
         } ?: return "unknown"
         val simple = trace.className.substringAfterLast('.').substringBefore('$')
         val activity = try {
