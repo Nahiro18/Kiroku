@@ -19,7 +19,10 @@ We use Firebase Crashlytics to collect crash reports and technical information a
 
 Crash reports are associated with your AniList username to allow us to contact you if we need additional information about a specific issue. However, you can choose to anonymize your crash reports through the app settings, which will remove your AniList username from the reports.
 
-Firebase Analytics collects anonymous usage data, including country-level geolocation information. This helps us understand how Dantotsu is being used across different regions.
+Firebase Analytics collects anonymous usage data, including country-level geolocation information. This helps us understand how Kiroku is being used across different regions.
+
+### Local Diagnostic Logs
+Kiroku can keep a diagnostic log on your device (up to 5 MB) with technical events, visited screens and failed network requests to help fix bugs. This log never leaves your device unless you choose to share it from Settings > About, and you can delete it at any time by turning off log recording in settings.
 
 ### Third-Party Authentication and Integration
 Dantotsu allows you to authenticate with the following third-party services:
