@@ -69,6 +69,10 @@ object Logger {
         }
     }
 
+    fun breadcrumb(action: String) {
+        log("[BREADCRUMB] $action", Level.INFO)
+    }
+
     fun log(level: Int, message: String, tag: String = "Kiroku") {
         val where = location()
         loggerExecutor.execute {

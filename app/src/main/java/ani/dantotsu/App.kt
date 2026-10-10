@@ -180,6 +180,7 @@ class App : Application() {
 
         override fun onActivityCreated(p0: Activity, p1: Bundle?) {
             lastActivity = p0.javaClass.simpleName
+            Logger.breadcrumb("Opened ${p0.javaClass.simpleName}")
         }
 
         override fun onActivityStarted(p0: Activity) {

@@ -77,6 +77,26 @@ private fun setupSocks5Proxy() {
                 ),
             )
             .addInterceptor(UncaughtExceptionInterceptor())
+            .addInterceptor { chain ->
+                val request = chain.request()
+                val start = System.currentTimeMillis()
+                try {
+                    val response = chain.proceed(request)
+                    if (response.code >= 400) {
+                        Logger.log(
+                            "NET ${response.code} ${request.method} ${request.url} ${System.currentTimeMillis() - start}ms",
+                            Logger.Level.WARN
+                        )
+                    }
+                    response
+                } catch (e: java.io.IOException) {
+                    Logger.log(
+                        "NET FAIL ${request.method} ${request.url} ${System.currentTimeMillis() - start}ms : ${e.message}",
+                        Logger.Level.WARN
+                    )
+                    throw e
+                }
+            }
             .addInterceptor(UserAgentInterceptor(::defaultUserAgentProvider))
             .addNetworkInterceptor(IgnoreGzipInterceptor())
             .addNetworkInterceptor(BrotliInterceptor)
