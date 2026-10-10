@@ -325,7 +325,7 @@ object Anilist {
                             passedLimitReset > now -> passedLimitReset - now
                             else -> 60
                         }
-                        if (attempt == 0 && wait <= 10) {
+                        if (attempt == 0 && wait <= 5) {
                             delay(wait * 1000)
                             continue
                         }
