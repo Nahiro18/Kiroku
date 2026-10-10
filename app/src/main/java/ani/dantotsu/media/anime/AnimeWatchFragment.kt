@@ -69,6 +69,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import tachiyomi.core.util.lang.launchIO
 import uy.kohesive.injekt.Injekt
@@ -215,19 +216,22 @@ class AnimeWatchFragment : Fragment() {
                             !isOnline(binding.root.context) || PrefManager.getVal(PrefName.OfflineMode)
                         if (offline) {
                             media.selected!!.sourceIndex = model.watchSources!!.list.lastIndex
+                            model.loadEpisodes(media, media.selected!!.sourceIndex)
                         } else {
+                            val eps = async {
+                                val index = media.selected!!.sourceIndex
+                                if (!model.loadEpisodes(media, index)) {
+                                    delay(12000)
+                                    if (media.selected!!.sourceIndex == index) {
+                                        model.loadEpisodes(media, index, true)
+                                    }
+                                }
+                            }
                             val kitsuEpisodes = async { model.loadKitsuEpisodes(media) }
                             val anifyEpisodes = async { model.loadAnifyEpisodes(media.id) }
                             val fillerEpisodes = async { model.loadFillerEpisodes(media) }
 
-                            awaitAll(kitsuEpisodes, anifyEpisodes, fillerEpisodes)
-                        }
-                        val index = media.selected!!.sourceIndex
-                        if (!model.loadEpisodes(media, index)) {
-                            delay(2000)
-                            if (media.selected!!.sourceIndex == index) {
-                                model.loadEpisodes(media, index, true)
-                            }
+                            awaitAll(kitsuEpisodes, anifyEpisodes, fillerEpisodes, eps)
                         }
                     }
                     loaded = true

@@ -211,7 +211,7 @@ open class MangaReadFragment : Fragment(), ScanlatorSelectionListener {
                                 model.mangaReadSources!!.list.lastIndex
                             val index = media.selected!!.sourceIndex
                             if (!model.loadMangaChapters(media, index)) {
-                                delay(2000)
+                                delay(12000)
                                 if (media.selected!!.sourceIndex == index) {
                                     model.loadMangaChapters(media, index, true)
                                 }

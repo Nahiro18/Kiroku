@@ -205,7 +205,7 @@ open class NovelReadFragment : Fragment(), ScanlatorSelectionListener {
                                 model.novelSources!!.list.lastIndex
                             val index = media.selected!!.sourceIndex
                             if (!model.loadNovelChapters(media, index)) {
-                                delay(2000)
+                                delay(12000)
                                 if (media.selected!!.sourceIndex == index) {
                                     model.loadNovelChapters(media, index, true)
                                 }
