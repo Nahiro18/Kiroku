@@ -126,12 +126,11 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        TaskScheduler.scheduleSingleWork(this)
-        // FIX NOTIFICACIONES: restaurar tareas repetitivas en cada arranque.
-        // Sin esto, las notificaciones solo se comprobaban al abrir la app
-        // o al cambiar algo en Ajustes > Notificaciones.
-        val useAlarmManager: Boolean = PrefManager.getVal(PrefName.UseAlarmManager)
-        TaskScheduler.create(this, useAlarmManager).scheduleAllTasks(this)
+        scope.launch(Dispatchers.IO) {
+            TaskScheduler.scheduleSingleWork(this@MainActivity)
+            val useAlarmManager: Boolean = PrefManager.getVal(PrefName.UseAlarmManager)
+            TaskScheduler.create(this@MainActivity, useAlarmManager).scheduleAllTasks(this@MainActivity)
+        }
         if (!CalcActivity.hasPermission) {
             val pin: String = PrefManager.getVal(PrefName.AppPassword)
             if (pin.isNotEmpty()) {

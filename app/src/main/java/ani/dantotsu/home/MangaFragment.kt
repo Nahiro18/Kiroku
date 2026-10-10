@@ -92,7 +92,6 @@ class MangaFragment : Fragment() {
 
         mangaPageAdapter = MangaPageAdapter()
         var loading = true
-        var emptyRetries = 0
         if (model.notSet) {
             model.notSet = false
             model.aniMangaSearchResults = AniMangaSearchResults(
@@ -224,7 +223,6 @@ class MangaFragment : Fragment() {
         mangaPageAdapter.onIncludeListClick = { checked ->
             oldIncludeList = !checked
             loading = true
-            emptyRetries = 0
             model.aniMangaSearchResults.results.clear()
             popularAdaptor.notifyDataSetChanged()
             scope.launch(Dispatchers.IO) {
@@ -249,18 +247,10 @@ class MangaFragment : Fragment() {
                 if (it.hasNextPage)
                     progressAdaptor.bar?.visibility = View.VISIBLE
                 else {
-                    if (model.aniMangaSearchResults.results.isNotEmpty())
-                        snackString(getString(R.string.jobless_message))
+                    snackString(getString(R.string.jobless_message))
                     progressAdaptor.bar?.visibility = View.GONE
                 }
                 loading = false
-                if (model.aniMangaSearchResults.results.isEmpty() && it.hasNextPage && emptyRetries < 2) {
-                    emptyRetries++
-                    loading = true
-                    scope.launch(Dispatchers.IO) {
-                        model.loadNextPage(model.aniMangaSearchResults)
-                    }
-                }
             }
         }
 
