@@ -22,22 +22,51 @@ import kotlin.system.exitProcess
 
 object Logger {
     var file: File? = null
+    private var logDir: File? = null
+    private var fileDate = ""
     private val loggerExecutor = Executors.newSingleThreadExecutor()
 
     enum class Level { DEBUG, INFO, WARN, ERROR }
 
+    private fun today(): String =
+        java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(Date())
+
+    private fun openDayFile(context: Context) {
+        val day = today()
+        logDir = context.getExternalFilesDir(null)
+        val dir = logDir ?: return
+        dir.listFiles { f -> f.name.startsWith("log-") && f.name.endsWith(".txt") }
+            ?.forEach {
+                val age = (System.currentTimeMillis() - it.lastModified()) / 86400000
+                if (age > 7) it.delete()
+            }
+        dir.resolve("log.txt").takeIf { it.exists() }?.delete()
+        file = File(dir, "log-$day.txt")
+        fileDate = day
+        if (file?.exists() == true) {
+            if (file!!.length() > 1024 * 1024 * 5) {
+                file?.delete()
+                file?.createNewFile()
+            }
+        } else {
+            file?.createNewFile()
+        }
+    }
+
+    private fun rolloverIfNeeded() {
+        if (file != null && fileDate != today()) {
+            fileDate = today()
+            logDir?.let {
+                file = File(it, "log-$fileDate.txt")
+                file?.takeIf { f -> !f.exists() }?.createNewFile()
+            }
+        }
+    }
+
     fun init(context: Context) {
         try {
             if (!PrefManager.getVal<Boolean>(PrefName.LogToFile) || file != null) return
-            file = File(context.getExternalFilesDir(null), "log.txt")
-            if (file?.exists() == true) {
-                if (file!!.length() > 1024 * 1024 * 5) { // 5 MB
-                    file?.delete()
-                    file?.createNewFile()
-                }
-            } else {
-                file?.createNewFile()
-            }
+            openDayFile(context)
             file?.appendText("log started\n")
             file?.appendText(getDeviceAndAppInfo(context))
 
@@ -67,6 +96,7 @@ object Logger {
 
     fun log(message: String, level: Level = Level.INFO) {
         val where = location()
+        rolloverIfNeeded()
         loggerExecutor.execute {
             if (file == null) Log.d("Kiroku", "[${level.name}] $where | $message")
             else file?.appendText("[${Date()}] [${level.name}] $where | $message\n")
@@ -141,6 +171,8 @@ object Logger {
     }
 
     fun clearLog() {
+        logDir?.listFiles { f -> f.name.startsWith("log-") && f.name.endsWith(".txt") }
+            ?.forEach { it.delete() }
         file?.delete()
         file = null
     }
