@@ -305,16 +305,18 @@ class MediaDetailsViewModel : ViewModel() {
     suspend fun loadMangaChapters(media: Media, i: Int, invalidate: Boolean = false): Boolean {
         Logger.log("Loading Manga Chapters : $mangaLoaded")
         if (!mangaLoaded.containsKey(i) || invalidate) {
-            return tryWithSuspend({
-                val loaded = mangaReadSources?.loadChaptersFromMedia(i, media) ?: return@tryWithSuspend false
+            var ok = false
+            tryWithSuspend {
+                val loaded = mangaReadSources?.loadChaptersFromMedia(i, media) ?: return@tryWithSuspend
                 if (loaded.isNotEmpty()) {
                     mangaLoaded[i] = loaded
                     mangaChapters.postValue(mangaLoaded)
                 } else {
                     mangaChapters.postValue(mutableMapOf(i to loaded))
                 }
-                loaded.isNotEmpty()
-            }) ?: false
+                ok = loaded.isNotEmpty()
+            }
+            return ok
         }
         mangaChapters.postValue(mangaLoaded)
         return true
@@ -390,7 +392,8 @@ class MediaDetailsViewModel : ViewModel() {
     suspend fun loadNovelChapters(media: Media, i: Int, invalidate: Boolean = false): Boolean {
         Logger.log("Loading Novel Chapters : $novelLoaded")
         if (!novelLoaded.containsKey(i) || invalidate) {
-            return tryWithSuspend({
+            var ok = false
+            tryWithSuspend {
                 val loaded = novelSources.loadChaptersFromMedia(i, media)
                 if (loaded.isNotEmpty()) {
                     novelLoaded[i] = loaded
@@ -398,8 +401,9 @@ class MediaDetailsViewModel : ViewModel() {
                 } else {
                     novelChapters.postValue(mutableMapOf(i to loaded))
                 }
-                loaded.isNotEmpty()
-            }) ?: false
+                ok = loaded.isNotEmpty()
+            }
+            return ok
         }
         novelChapters.postValue(novelLoaded)
         return true
