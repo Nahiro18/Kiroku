@@ -404,6 +404,13 @@ class MainActivity : AppCompatActivity() {
         window.navigationBarColor = ContextCompat.getColor(this, android.R.color.transparent)
     }
 
+    override fun onDestroy() {
+        if (isFinishing && Injekt.get<TorrentAddonManager>().torrentHash == null) {
+            TorrentServerService.stop()
+        }
+        super.onDestroy()
+    }
+
     private fun handleViewIntent(intent: Intent) {
         val uri: Uri? = intent.data
         try {

@@ -339,7 +339,7 @@ class AnimeDownloaderService : Service() {
                             notificationManager.notify(NOTIFICATION_ID, builder.build())
                         }
                     }
-                    kotlinx.coroutines.delay(2000)
+                    kotlinx.coroutines.delay(5000)
                 }
                 if (ffExtension.getState(ffTask) == "COMPLETED") {
                     if (ffExtension.hadError(ffTask)) {

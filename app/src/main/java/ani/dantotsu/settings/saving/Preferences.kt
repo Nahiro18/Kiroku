@@ -45,7 +45,7 @@ enum class PrefName(val data: Pref) {
     NovelSourcesOrder(Pref(Location.General, List::class, listOf<String>())),
     CommentNotificationInterval(Pref(Location.General, Int::class, 0)),
     AnilistNotificationInterval(Pref(Location.General, Int::class, 3)),
-    SubscriptionNotificationInterval(Pref(Location.General, Int::class, 2)),
+    SubscriptionNotificationInterval(Pref(Location.General, Int::class, 3)),
     LastAnilistNotificationId(Pref(Location.General, Int::class, 0)),
     AnilistFilteredTypes(Pref(Location.General, Set::class, setOf<String>())),
     UseAlarmManager(Pref(Location.General, Boolean::class, false)),

@@ -8,13 +8,20 @@ import ani.dantotsu.notifications.TaskScheduler
 import ani.dantotsu.settings.saving.PrefManager
 import ani.dantotsu.settings.saving.PrefName
 import ani.dantotsu.util.Logger
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class SubscriptionNotificationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         Logger.log("SubscriptionNotificationReceiver: onReceive")
-        runBlocking {
-            SubscriptionNotificationTask().execute(context)
+        val pending = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                SubscriptionNotificationTask().execute(context)
+            } finally {
+                pending.finish()
+            }
         }
         val subscriptionInterval =
             SubscriptionNotificationWorker.checkIntervals[PrefManager.getVal(PrefName.SubscriptionNotificationInterval)]

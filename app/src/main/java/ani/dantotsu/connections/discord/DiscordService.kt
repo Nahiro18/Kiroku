@@ -119,7 +119,7 @@ class DiscordService : Service() {
 
     override fun onDestroy() {
         log("Service Destroyed")
-        if (DiscordServiceRunningSingleton.running) {
+        if (DiscordServiceRunningSingleton.running && Discord.token != null) {
             log("Accidental Service Destruction, restarting service")
             val intent = Intent(baseContext, DiscordService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

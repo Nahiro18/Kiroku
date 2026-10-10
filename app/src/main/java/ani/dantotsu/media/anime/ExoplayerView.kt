@@ -2480,6 +2480,7 @@ class ExoplayerView :
 
     override fun onDestroy() {
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        handler.removeCallbacksAndMessages(null)
 
         CoroutineScope(Dispatchers.IO).launch {
             tryWithSuspend(true) {
