@@ -68,6 +68,7 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import tachiyomi.core.util.lang.launchIO
 import uy.kohesive.injekt.Injekt
@@ -221,7 +222,13 @@ class AnimeWatchFragment : Fragment() {
 
                             awaitAll(kitsuEpisodes, anifyEpisodes, fillerEpisodes)
                         }
-                        model.loadEpisodes(media, media.selected!!.sourceIndex)
+                        val index = media.selected!!.sourceIndex
+                        if (!model.loadEpisodes(media, index)) {
+                            delay(2000)
+                            if (media.selected!!.sourceIndex == index) {
+                                model.loadEpisodes(media, index, true)
+                            }
+                        }
                     }
                     loaded = true
                 } else {

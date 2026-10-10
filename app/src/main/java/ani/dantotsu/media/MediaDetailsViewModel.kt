@@ -131,18 +131,19 @@ class MediaDetailsViewModel : ViewModel() {
     private val episodes = MutableLiveData<MutableMap<Int, MutableMap<String, Episode>>>(null)
     private val epsLoaded = mutableMapOf<Int, MutableMap<String, Episode>>()
     fun getEpisodes(): LiveData<MutableMap<Int, MutableMap<String, Episode>>> = episodes
-    suspend fun loadEpisodes(media: Media, i: Int, invalidate: Boolean = false) {
+    suspend fun loadEpisodes(media: Media, i: Int, invalidate: Boolean = false): Boolean {
         if (!epsLoaded.containsKey(i) || invalidate) {
-            val loaded = watchSources?.loadEpisodesFromMedia(i, media) ?: return
+            val loaded = watchSources?.loadEpisodesFromMedia(i, media) ?: return false
             if (loaded.isNotEmpty()) {
                 epsLoaded[i] = loaded
                 episodes.postValue(epsLoaded)
             } else {
                 episodes.postValue(mutableMapOf(i to loaded))
             }
-            return
+            return loaded.isNotEmpty()
         }
         episodes.postValue(epsLoaded)
+        return true
     }
 
     suspend fun forceLoadEpisode(media: Media, i: Int) {
@@ -301,19 +302,22 @@ class MediaDetailsViewModel : ViewModel() {
     fun getMangaChapters(): LiveData<MutableMap<Int, MutableMap<String, MangaChapter>>> =
         mangaChapters
 
-    suspend fun loadMangaChapters(media: Media, i: Int, invalidate: Boolean = false) {
+    suspend fun loadMangaChapters(media: Media, i: Int, invalidate: Boolean = false): Boolean {
         Logger.log("Loading Manga Chapters : $mangaLoaded")
-        if (!mangaLoaded.containsKey(i) || invalidate) tryWithSuspend {
-            val loaded = mangaReadSources?.loadChaptersFromMedia(i, media) ?: return@tryWithSuspend
-            if (loaded.isNotEmpty()) {
-                mangaLoaded[i] = loaded
-                mangaChapters.postValue(mangaLoaded)
-            } else {
-                mangaChapters.postValue(mutableMapOf(i to loaded))
-            }
-            return@tryWithSuspend
+        if (!mangaLoaded.containsKey(i) || invalidate) {
+            return tryWithSuspend({
+                val loaded = mangaReadSources?.loadChaptersFromMedia(i, media) ?: return@tryWithSuspend false
+                if (loaded.isNotEmpty()) {
+                    mangaLoaded[i] = loaded
+                    mangaChapters.postValue(mangaLoaded)
+                } else {
+                    mangaChapters.postValue(mutableMapOf(i to loaded))
+                }
+                loaded.isNotEmpty()
+            }) ?: false
         }
         mangaChapters.postValue(mangaLoaded)
+        return true
     }
 
     suspend fun overrideMangaChapters(i: Int, source: ShowResponse, id: Int) {
@@ -383,19 +387,22 @@ class MediaDetailsViewModel : ViewModel() {
     fun getNovelChapters(): LiveData<MutableMap<Int, MutableMap<String, MangaChapter>>> =
         novelChapters
 
-    suspend fun loadNovelChapters(media: Media, i: Int, invalidate: Boolean = false) {
+    suspend fun loadNovelChapters(media: Media, i: Int, invalidate: Boolean = false): Boolean {
         Logger.log("Loading Novel Chapters : $novelLoaded")
-        if (!novelLoaded.containsKey(i) || invalidate) tryWithSuspend {
-            val loaded = novelSources.loadChaptersFromMedia(i, media)
-            if (loaded.isNotEmpty()) {
-                novelLoaded[i] = loaded
-                novelChapters.postValue(novelLoaded)
-            } else {
-                novelChapters.postValue(mutableMapOf(i to loaded))
-            }
-            return@tryWithSuspend
+        if (!novelLoaded.containsKey(i) || invalidate) {
+            return tryWithSuspend({
+                val loaded = novelSources.loadChaptersFromMedia(i, media)
+                if (loaded.isNotEmpty()) {
+                    novelLoaded[i] = loaded
+                    novelChapters.postValue(novelLoaded)
+                } else {
+                    novelChapters.postValue(mutableMapOf(i to loaded))
+                }
+                loaded.isNotEmpty()
+            }) ?: false
         }
         novelChapters.postValue(novelLoaded)
+        return true
     }
 
     suspend fun overrideNovelChapters(i: Int, source: ShowResponse, id: Int) {

@@ -61,6 +61,7 @@ import ani.dantotsu.parsers.novel.NovelExtension
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uy.kohesive.injekt.Injekt
@@ -202,7 +203,13 @@ open class NovelReadFragment : Fragment(), ScanlatorSelectionListener {
                                 !isOnline(binding.root.context) || PrefManager.getVal(PrefName.OfflineMode)
                             if (offline) media.selected!!.sourceIndex =
                                 model.novelSources!!.list.lastIndex
-                            model.loadNovelChapters(media, media.selected!!.sourceIndex)
+                            val index = media.selected!!.sourceIndex
+                            if (!model.loadNovelChapters(media, index)) {
+                                delay(2000)
+                                if (media.selected!!.sourceIndex == index) {
+                                    model.loadNovelChapters(media, index, true)
+                                }
+                            }
                         }
                         loaded = true
                     } else {
