@@ -76,6 +76,32 @@ object Logger {
         }
     }
 
+    private val secretQuery = Regex(
+        "([?&](token|access_token|api_key|apikey|auth|authorization|client_secret|password|pass|key)=)[^&\\s]+",
+        RegexOption.IGNORE_CASE
+    )
+    private val bearerToken = Regex("Bearer [A-Za-z0-9\\-._~+/=]+")
+    private val urlCredentials = Regex("(https?://[^/\\s:]+:)[^@\\s]+@")
+
+    private fun settingsSnapshot(): String {
+        return try {
+            val dns = PrefManager.getVal<Int>(PrefName.DohProvider)
+            val theme = PrefManager.getVal<String>(PrefName.Theme)
+            val immersive = PrefManager.getVal<Boolean>(PrefName.ImmersiveMode)
+            "dns=$dns theme=$theme immersive=$immersive"
+        } catch (_: Exception) {
+            "settings=n/a"
+        }
+    }
+
+    private fun sanitize(text: String): String {
+        var out = text
+        out = urlCredentials.replace(out, "$1***@")
+        out = bearerToken.replace(out, "Bearer ***")
+        out = secretQuery.replace(out, "$1***")
+        return out
+    }
+
     private fun location(): String {
         val trace = Thread.currentThread().stackTrace.firstOrNull {
             val n = it.className
@@ -99,7 +125,7 @@ object Logger {
         rolloverIfNeeded()
         loggerExecutor.execute {
             if (file == null) Log.d("Kiroku", "[${level.name}] $where | $message")
-            else file?.appendText("[${Date()}] [${level.name}] $where | $message\n")
+            else file?.appendText(sanitize("[${Date()}] [${level.name}] $where | $message\n"))
         }
     }
 
@@ -111,7 +137,7 @@ object Logger {
         val where = location()
         loggerExecutor.execute {
             if (file == null) Log.println(level, tag, message)
-            else file?.appendText("[${Date()}] [${levelName(level)}] $where | $message\n")
+            else file?.appendText(sanitize("[${Date()}] [${levelName(level)}] $where | $message\n"))
         }
     }
 
@@ -127,7 +153,7 @@ object Logger {
         val where = location()
         loggerExecutor.execute {
             if (file == null) e.printStackTrace() else {
-                file?.appendText("[${Date()}] [ERROR] $where | ${e.message}\n${e.stackTraceToString()}\n")
+                file?.appendText(sanitize("[${Date()}] [ERROR] $where | ${e.message} | ${settingsSnapshot()}\n${e.stackTraceToString()}\n"))
             }
         }
     }
@@ -136,7 +162,7 @@ object Logger {
         val where = location()
         loggerExecutor.execute {
             if (file == null) e.printStackTrace() else {
-                file?.appendText("[${Date()}] [ERROR] $where | ${e.message}\n${e.stackTraceToString()}\n")
+                file?.appendText(sanitize("[${Date()}] [ERROR] $where | ${e.message} | ${settingsSnapshot()}\n${e.stackTraceToString()}\n"))
             }
         }
     }
@@ -144,7 +170,7 @@ object Logger {
     fun uncaughtException(t: Thread, e: Throwable) {
         loggerExecutor.execute {
             if (file == null) e.printStackTrace() else {
-                file?.appendText("[${Date()}] [ERROR] thread=${t.name} | ${e.message}\n${e.stackTraceToString()}\n")
+                file?.appendText(sanitize("[${Date()}] [ERROR] thread=${t.name} | ${e.message} | ${settingsSnapshot()}\n${e.stackTraceToString()}\n"))
             }
         }
     }
