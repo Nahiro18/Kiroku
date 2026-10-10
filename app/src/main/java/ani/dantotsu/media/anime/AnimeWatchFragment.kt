@@ -68,6 +68,7 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import tachiyomi.core.util.lang.launchIO
 import uy.kohesive.injekt.Injekt
@@ -191,7 +192,7 @@ class AnimeWatchFragment : Fragment() {
                 progress = View.GONE
                 binding.mediaInfoProgressBar.visibility = progress
 
-                if (!loaded || media.anime?.episodes == null) {
+                if (!loaded || media.anime?.episodes.isNullOrEmpty()) {
                     model.watchSources = if (media.isAdult) HAnimeSources else AnimeSources
 
                     val offlineMode =
@@ -220,6 +221,11 @@ class AnimeWatchFragment : Fragment() {
                             val fillerEpisodes = async { model.loadFillerEpisodes(media) }
 
                             awaitAll(kitsuEpisodes, anifyEpisodes, fillerEpisodes)
+                        }
+                        var waits = 0
+                        while (!AnimeSources.isInitialized && waits < 40) {
+                            delay(250)
+                            waits++
                         }
                         model.loadEpisodes(media, media.selected!!.sourceIndex)
                     }

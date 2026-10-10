@@ -56,10 +56,12 @@ import ani.dantotsu.util.StoragePermissions.Companion.accessAlertDialog
 import ani.dantotsu.util.StoragePermissions.Companion.hasDirAccess
 import ani.dantotsu.util.customAlertDialog
 import com.google.android.material.appbar.AppBarLayout
+import ani.dantotsu.parsers.NovelSources
 import ani.dantotsu.parsers.novel.NovelExtension
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uy.kohesive.injekt.Injekt
@@ -201,6 +203,11 @@ open class NovelReadFragment : Fragment(), ScanlatorSelectionListener {
                                 !isOnline(binding.root.context) || PrefManager.getVal(PrefName.OfflineMode)
                             if (offline) media.selected!!.sourceIndex =
                                 model.novelSources!!.list.lastIndex
+                            var waits = 0
+                            while (!NovelSources.isInitialized && waits < 40) {
+                                delay(250)
+                                waits++
+                            }
                             model.loadNovelChapters(media, media.selected!!.sourceIndex)
                         }
                         loaded = true

@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.first
 object NovelSources : NovelReadSources() {
     override var list: List<Lazier<BaseParser>> = emptyList()
     var pinnedNovelSources: List<String> = emptyList()
+    var isInitialized = false
 
     suspend fun init(
         fromExtensions: StateFlow<List<NovelExtension.Installed>>,
@@ -37,6 +38,7 @@ object NovelSources : NovelReadSources() {
         }.collect { combinedList ->
             @Suppress("UNCHECKED_CAST")
             list = combinedList as List<Lazier<BaseParser>>
+            isInitialized = true
         }
     }
 

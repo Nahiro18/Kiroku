@@ -66,6 +66,7 @@ import eu.kanade.tachiyomi.extension.manga.model.MangaExtension
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uy.kohesive.injekt.Injekt
@@ -184,7 +185,7 @@ open class MangaReadFragment : Fragment(), ScanlatorSelectionListener {
                     style = media.selected!!.recyclerStyle
                     reverse = media.selected!!.recyclerReversed
 
-                    if (!loaded || media.manga?.chapters == null) {
+                    if (!loaded || media.manga?.chapters.isNullOrEmpty()) {
                         model.mangaReadSources = if (media.isAdult) HMangaSources else MangaSources
 
                         headerAdapter = MangaReadAdapter(it, this, model.mangaReadSources!!)
@@ -208,6 +209,11 @@ open class MangaReadFragment : Fragment(), ScanlatorSelectionListener {
                                 !isOnline(binding.root.context) || PrefManager.getVal(PrefName.OfflineMode)
                             if (offline) media.selected!!.sourceIndex =
                                 model.mangaReadSources!!.list.lastIndex
+                            var waits = 0
+                            while (!MangaSources.isInitialized && waits < 40) {
+                                delay(250)
+                                waits++
+                            }
                             model.loadMangaChapters(media, media.selected!!.sourceIndex)
                         }
                         loaded = true
