@@ -184,7 +184,7 @@ open class MangaReadFragment : Fragment(), ScanlatorSelectionListener {
                     style = media.selected!!.recyclerStyle
                     reverse = media.selected!!.recyclerReversed
 
-                    if (!loaded) {
+                    if (!loaded || media.manga?.chapters == null) {
                         model.mangaReadSources = if (media.isAdult) HMangaSources else MangaSources
 
                         headerAdapter = MangaReadAdapter(it, this, model.mangaReadSources!!)

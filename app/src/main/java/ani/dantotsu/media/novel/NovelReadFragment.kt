@@ -178,7 +178,7 @@ open class NovelReadFragment : Fragment(), ScanlatorSelectionListener {
                     style = media.selected!!.recyclerStyle
                     reverse = media.selected!!.recyclerReversed
 
-                    if (!loaded) {
+                    if (!loaded || model.getNovelChapters().value?.get(media.selected!!.sourceIndex) == null) {
                         // Source reassignment string removed
                         headerAdapter = NovelReadAdapter(it, this, model.novelSources!!)
                         headerAdapter.scanlatorSelectionListener = this

@@ -125,10 +125,10 @@ suspend fun <T> tryWithSuspend(
 ): T? {
     return try {
         call.invoke()
+    } catch (e: CancellationException) {
+        null
     } catch (e: Throwable) {
         logError(e, post, snackbar)
-        null
-    } catch (e: CancellationException) {
         null
     }
 }

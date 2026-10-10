@@ -191,7 +191,7 @@ class AnimeWatchFragment : Fragment() {
                 progress = View.GONE
                 binding.mediaInfoProgressBar.visibility = progress
 
-                if (!loaded) {
+                if (!loaded || media.anime?.episodes == null) {
                     model.watchSources = if (media.isAdult) HAnimeSources else AnimeSources
 
                     val offlineMode =
