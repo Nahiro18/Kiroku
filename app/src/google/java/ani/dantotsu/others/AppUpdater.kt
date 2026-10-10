@@ -9,6 +9,9 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
 import android.os.Environment
+import android.view.Gravity
+import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
@@ -20,6 +23,7 @@ import ani.dantotsu.buildMarkwon
 import ani.dantotsu.client
 import ani.dantotsu.connections.comments.CommentsAPI
 import ani.dantotsu.currContext
+import ani.dantotsu.px
 import ani.dantotsu.decodeBase64ToString
 import ani.dantotsu.logError
 import ani.dantotsu.openLinkInBrowser
@@ -94,7 +98,13 @@ object AppUpdater {
             .parsed<GithubResponse>().assets?.filter {
                 it.browserDownloadURL.endsWith(".apk")
             }
-        return apks?.firstOrNull()?.browserDownloadURL
+        if (apks.isNullOrEmpty()) return null
+        val abis = android.os.Build.SUPPORTED_ABIS.toList()
+        return abis.firstNotNullOfOrNull { abi ->
+            apks.firstOrNull { abi in it.browserDownloadURL }
+        }?.browserDownloadURL
+            ?: apks.firstOrNull { "universal" in it.browserDownloadURL }?.browserDownloadURL
+            ?: apks.firstOrNull()?.browserDownloadURL
     }
 
     suspend fun check(activity: FragmentActivity, post: Boolean = false) {
@@ -111,9 +121,17 @@ object AppUpdater {
             if (compareVersion(version) && (!dontShow || post) && !activity.isDestroyed) activity.runOnUiThread {
                 CustomBottomDialog.newInstance().apply {
                     setTitleText(
-                        "${if (BuildConfig.DEBUG) "Beta " else ""}Update " + currContext()!!.getString(
+                        "Kiroku v$version " + currContext()!!.getString(
                             R.string.available
                         )
+                    )
+                    addView(
+                        ImageView(activity).apply {
+                            setImageResource(R.drawable.ic_launcher_foreground)
+                            layoutParams = LinearLayout.LayoutParams(72f.px, 72f.px).apply {
+                                gravity = Gravity.CENTER_HORIZONTAL
+                            }
+                        }
                     )
                     addView(
                         TextView(activity).apply {
@@ -134,7 +152,7 @@ object AppUpdater {
                             PrefManager.setCustomVal("dont_ask_for_update_$version", true)
                         }
                     }
-                    setPositiveButton(currContext()!!.getString(R.string.lets_go)) {
+                    setPositiveButton(currContext()!!.getString(R.string.download_update)) {
                         MainScope().launch(Dispatchers.IO) {
                             try {
                                 val apkUrl = fetchApkUrl(repo, version, BuildConfig.DEBUG)
