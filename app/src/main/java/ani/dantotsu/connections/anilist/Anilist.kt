@@ -17,6 +17,7 @@ import ani.dantotsu.util.Logger
 import java.util.Calendar
 import java.util.Locale
 import kotlin.math.abs
+import kotlinx.coroutines.delay
 
 object Anilist {
     val query: AnilistQueries = AnilistQueries()
@@ -304,31 +305,40 @@ object Anilist {
                 null
             } else {
                 if (token != null && useToken) headers["Authorization"] = "Bearer $token"
-                val json = client.post(
-                    "https://graphql.anilist.co/",
-                    headers,
-                    data = data,
-                    cacheTime = cache ?: 10
-                )
-                val remaining = json.headers["X-RateLimit-Remaining"]?.toIntOrNull() ?: -1
-                Logger.log("Remaining requests: $remaining")
-                if (json.code == 429) {
-                    val retry = json.headers["Retry-After"]?.toIntOrNull() ?: -1
-                    val passedLimitReset = json.headers["X-RateLimit-Reset"]?.toLongOrNull() ?: 0
-                    val now = System.currentTimeMillis() / 1000
-                    if (passedLimitReset > now) rateLimitReset = passedLimitReset
-                    val wait = when {
-                        retry > 0 -> retry.toLong()
-                        passedLimitReset > now -> passedLimitReset - now
-                        else -> 60
+                var result: T? = null
+                for (attempt in 0..1) {
+                    val json = client.post(
+                        "https://graphql.anilist.co/",
+                        headers,
+                        data = data,
+                        cacheTime = if (attempt > 0) 0 else cache ?: 10
+                    )
+                    val remaining = json.headers["X-RateLimit-Remaining"]?.toIntOrNull() ?: -1
+                    Logger.log("Remaining requests: $remaining")
+                    if (json.code == 429) {
+                        val retry = json.headers["Retry-After"]?.toIntOrNull() ?: -1
+                        val passedLimitReset = json.headers["X-RateLimit-Reset"]?.toLongOrNull() ?: 0
+                        val now = System.currentTimeMillis() / 1000
+                        if (passedLimitReset > now) rateLimitReset = passedLimitReset
+                        val wait = when {
+                            retry > 0 -> retry.toLong()
+                            passedLimitReset > now -> passedLimitReset - now
+                            else -> 60
+                        }
+                        if (attempt == 0 && wait <= 10) {
+                            delay(wait * 1000)
+                            continue
+                        }
+                        toast("Rate limited. Try after $wait seconds")
+                        throw Exception("Rate limited after $wait seconds")
                     }
-                    toast("Rate limited. Try after $wait seconds")
-                    throw Exception("Rate limited after $wait seconds")
+                    if (!json.text.startsWith("{")) {
+                        throw Exception(currContext()?.getString(R.string.anilist_down))
+                    }
+                    result = json.parsed()
+                    break
                 }
-                if (!json.text.startsWith("{")) {
-                    throw Exception(currContext()?.getString(R.string.anilist_down))
-                }
-                json.parsed()
+                result
             }
         } catch (e: Exception) {
             if (show) snackString("Error fetching Anilist data: ${e.message}")
