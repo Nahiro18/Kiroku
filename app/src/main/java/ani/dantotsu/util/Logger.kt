@@ -24,6 +24,8 @@ object Logger {
     var file: File? = null
     private val loggerExecutor = Executors.newSingleThreadExecutor()
 
+    enum class Level { DEBUG, INFO, WARN, ERROR }
+
     fun init(context: Context) {
         try {
             if (!PrefManager.getVal<Boolean>(PrefName.LogToFile) || file != null) return
@@ -45,50 +47,58 @@ object Logger {
         }
     }
 
-    fun log(message: String) {
-        val trace = Thread.currentThread().stackTrace[3]
+    private fun location(): String {
+        val trace = Thread.currentThread().stackTrace.firstOrNull {
+            !it.className.startsWith("ani.dantotsu.util.Logger") && !it.className.startsWith("java.lang.Thread")
+        } ?: return "unknown"
+        val simple = trace.className.substringAfterLast('.').substringBefore('$')
+        val activity = try {
+            App.currentActivity()?.javaClass?.simpleName
+        } catch (_: Exception) {
+            null
+        }
+        return if (activity != null) "$simple.${trace.methodName}:${trace.lineNumber} [$activity]"
+        else "$simple.${trace.methodName}:${trace.lineNumber}"
+    }
+
+    fun log(message: String, level: Level = Level.INFO) {
+        val where = location()
         loggerExecutor.execute {
-            if (file == null) Log.d("Internal Logger", message)
-            else {
-                val className = trace.className
-                val methodName = trace.methodName
-                val lineNumber = trace.lineNumber
-                file?.appendText("date/time: ${Date()} | $className.$methodName($lineNumber)\n")
-                file?.appendText("message: $message\n-\n")
-            }
+            if (file == null) Log.d("Kiroku", "[${level.name}] $where | $message")
+            else file?.appendText("[${Date()}] [${level.name}] $where | $message\n")
         }
     }
 
-    fun log(level: Int, message: String, tag: String = "Internal Logger") {
-        val trace = Thread.currentThread().stackTrace[3]
+    fun log(level: Int, message: String, tag: String = "Kiroku") {
+        val where = location()
         loggerExecutor.execute {
             if (file == null) Log.println(level, tag, message)
-            else {
-                val className = trace.className
-                val methodName = trace.methodName
-                val lineNumber = trace.lineNumber
-                file?.appendText("date/time: ${Date()} | $className.$methodName($lineNumber)\n")
-                file?.appendText("message: $message\n-\n")
-            }
+            else file?.appendText("[${Date()}] [${levelName(level)}] $where | $message\n")
         }
     }
 
+    private fun levelName(level: Int): String = when (level) {
+        Log.VERBOSE -> "VERBOSE"
+        Log.DEBUG -> "DEBUG"
+        Log.INFO -> "INFO"
+        Log.WARN -> "WARN"
+        Log.ERROR -> "ERROR"
+        else -> "INFO"
+    }
     fun log(e: Exception) {
+        val where = location()
         loggerExecutor.execute {
             if (file == null) e.printStackTrace() else {
-                file?.appendText("---------------------------Exception---------------------------\n")
-                file?.appendText("date/time: ${Date()} |  ${e.message}\n")
-                file?.appendText("trace: ${e.stackTraceToString()}\n")
+                file?.appendText("[${Date()}] [ERROR] $where | ${e.message}\n${e.stackTraceToString()}\n")
             }
         }
     }
 
     fun log(e: Throwable) {
+        val where = location()
         loggerExecutor.execute {
             if (file == null) e.printStackTrace() else {
-                file?.appendText("---------------------------Exception---------------------------\n")
-                file?.appendText("date/time: ${Date()} |  ${e.message}\n")
-                file?.appendText("trace: ${e.stackTraceToString()}\n")
+                file?.appendText("[${Date()}] [ERROR] $where | ${e.message}\n${e.stackTraceToString()}\n")
             }
         }
     }
@@ -96,10 +106,7 @@ object Logger {
     fun uncaughtException(t: Thread, e: Throwable) {
         loggerExecutor.execute {
             if (file == null) e.printStackTrace() else {
-                file?.appendText("---------------------------Uncaught Exception---------------------------\n")
-                file?.appendText("thread: ${t.name}\n")
-                file?.appendText("date/time: ${Date()} |  ${e.message}\n")
-                file?.appendText("trace: ${e.stackTraceToString()}\n")
+                file?.appendText("[${Date()}] [ERROR] thread=${t.name} | ${e.message}\n${e.stackTraceToString()}\n")
             }
         }
     }
