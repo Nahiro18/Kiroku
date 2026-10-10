@@ -133,7 +133,14 @@ class MediaDetailsViewModel : ViewModel() {
     fun getEpisodes(): LiveData<MutableMap<Int, MutableMap<String, Episode>>> = episodes
     suspend fun loadEpisodes(media: Media, i: Int, invalidate: Boolean = false) {
         if (!epsLoaded.containsKey(i) || invalidate) {
-            epsLoaded[i] = watchSources?.loadEpisodesFromMedia(i, media) ?: return
+            val loaded = watchSources?.loadEpisodesFromMedia(i, media) ?: return
+            if (loaded.isNotEmpty()) {
+                epsLoaded[i] = loaded
+                episodes.postValue(epsLoaded)
+            } else {
+                episodes.postValue(mutableMapOf(i to loaded))
+            }
+            return
         }
         episodes.postValue(epsLoaded)
     }
@@ -297,8 +304,14 @@ class MediaDetailsViewModel : ViewModel() {
     suspend fun loadMangaChapters(media: Media, i: Int, invalidate: Boolean = false) {
         Logger.log("Loading Manga Chapters : $mangaLoaded")
         if (!mangaLoaded.containsKey(i) || invalidate) tryWithSuspend {
-            mangaLoaded[i] =
-                mangaReadSources?.loadChaptersFromMedia(i, media) ?: return@tryWithSuspend
+            val loaded = mangaReadSources?.loadChaptersFromMedia(i, media) ?: return@tryWithSuspend
+            if (loaded.isNotEmpty()) {
+                mangaLoaded[i] = loaded
+                mangaChapters.postValue(mangaLoaded)
+            } else {
+                mangaChapters.postValue(mutableMapOf(i to loaded))
+            }
+            return@tryWithSuspend
         }
         mangaChapters.postValue(mangaLoaded)
     }
@@ -373,8 +386,14 @@ class MediaDetailsViewModel : ViewModel() {
     suspend fun loadNovelChapters(media: Media, i: Int, invalidate: Boolean = false) {
         Logger.log("Loading Novel Chapters : $novelLoaded")
         if (!novelLoaded.containsKey(i) || invalidate) tryWithSuspend {
-            novelLoaded[i] =
-                novelSources.loadChaptersFromMedia(i, media)
+            val loaded = novelSources.loadChaptersFromMedia(i, media)
+            if (loaded.isNotEmpty()) {
+                novelLoaded[i] = loaded
+                novelChapters.postValue(novelLoaded)
+            } else {
+                novelChapters.postValue(mutableMapOf(i to loaded))
+            }
+            return@tryWithSuspend
         }
         novelChapters.postValue(novelLoaded)
     }

@@ -28,6 +28,7 @@ import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.util.lang.awaitSingle
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -258,13 +259,14 @@ class DynamicAnimeParser(extension: AnimeExtension.Installed) : AnimeParser() {
                 snackString("Failed to bypass Cloudflare")
             }
             emptyList()
+        } catch (e: CancellationException) {
+            emptyList()
         } catch (e: Exception) {
             Logger.log("General exception in search: $e")
             Logger.log(e)
             emptyList()
         }
     }
-
 
     private fun convertAnimesPageToShowResponse(animesPage: AnimesPage): List<ShowResponse> {
         return animesPage.animes.map { sAnime ->
@@ -441,6 +443,8 @@ class DynamicMangaParser(extension: MangaExtension.Installed) : MangaParser() {
             withContext(Dispatchers.Main) {
                 snackString("Failed to bypass Cloudflare")
             }
+            emptyList()
+        } catch (e: CancellationException) {
             emptyList()
         } catch (e: Exception) {
             Logger.log("General exception in search: $e")
