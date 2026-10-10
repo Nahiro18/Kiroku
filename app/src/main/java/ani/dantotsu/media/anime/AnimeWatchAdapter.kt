@@ -497,11 +497,17 @@ class AnimeWatchAdapter(
                 binding.faqbutton.isGone = sourceFound
 
                 if (!sourceFound && PrefManager.getVal(PrefName.SearchSources) && autoSelect) {
-                    if (binding.mediaSource.adapter.count > media.selected!!.sourceIndex + 1) {
+                    binding.mediaSource.setAdapter(
+                        ArrayAdapter(
+                            fragment.requireContext(),
+                            R.layout.item_dropdown,
+                            watchSources.names
+                        )
+                    )
+                    if (watchSources.names.size > media.selected!!.sourceIndex + 1) {
                         val nextIndex = media.selected!!.sourceIndex + 1
                         binding.mediaSource.setText(
-                            binding.mediaSource.adapter
-                                .getItem(nextIndex).toString(), false
+                            watchSources.names[nextIndex], false
                         )
                         fragment.onSourceChange(nextIndex).apply {
                             binding.mediaSourceTitle.text = showUserText

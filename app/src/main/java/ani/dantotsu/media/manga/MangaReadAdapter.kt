@@ -565,11 +565,17 @@ class MangaReadAdapter(
 
 
                 if (!sourceFound && PrefManager.getVal(PrefName.SearchSources)) {
-                    if (binding.mediaSource.adapter.count > media.selected!!.sourceIndex + 1) {
+                    binding.mediaSource.setAdapter(
+                        ArrayAdapter(
+                            fragment.requireContext(),
+                            R.layout.item_dropdown,
+                            mangaReadSources.names
+                        )
+                    )
+                    if (mangaReadSources.names.size > media.selected!!.sourceIndex + 1) {
                         val nextIndex = media.selected!!.sourceIndex + 1
                         binding.mediaSource.setText(
-                            binding.mediaSource.adapter
-                                .getItem(nextIndex).toString(), false
+                            mangaReadSources.names[nextIndex], false
                         )
                         fragment.onSourceChange(nextIndex).apply {
                             binding.mediaSourceTitle.text = showUserText
