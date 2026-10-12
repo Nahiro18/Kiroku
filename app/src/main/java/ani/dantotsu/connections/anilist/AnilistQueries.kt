@@ -917,7 +917,8 @@ class AnilistQueries {
         hd: Boolean = false
     ): AniMangaSearchResults? {
         val showAdult: Boolean = PrefManager.getVal(PrefName.ShowAdultContent)
-        val variables = """{"type":"$type"${if (showAdult) "" else ""","isAdult":$isAdult"""}
+        val includeAll = showAdult && !isAdult
+        val variables = """{"type":"$type"${if (includeAll) "" else ""","isAdult":$isAdult"""}
             ${if (onList != null) ""","onList":$onList""" else ""}
             ${if (page != null) ""","page":"$page"""" else ""}
             ${if (id != null) ""","id":"$id"""" else ""}
@@ -962,7 +963,7 @@ class AnilistQueries {
         }
             }""".prepare()
         val response =
-            executeQuery<Query.Page>(aniMangaSearch(perPage, !showAdult), variables, true)?.data?.page
+            executeQuery<Query.Page>(aniMangaSearch(perPage, !includeAll), variables, true)?.data?.page
         if (response?.media != null) {
             val responseArray = arrayListOf<Media>()
             response.media?.forEach { i ->
