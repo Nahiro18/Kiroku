@@ -916,7 +916,7 @@ class AnilistQueries {
         id: Int? = null,
         hd: Boolean = false
     ): AniMangaSearchResults? {
-        val showAdult = PrefManager.getVal(PrefName.ShowAdultContent)
+        val showAdult: Boolean = PrefManager.getVal(PrefName.ShowAdultContent)
         val variables = """{"type":"$type"${if (showAdult) "" else ""","isAdult":$isAdult"""}
             ${if (onList != null) ""","onList":$onList""" else ""}
             ${if (page != null) ""","page":"$page"""" else ""}

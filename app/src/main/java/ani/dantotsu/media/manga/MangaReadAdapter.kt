@@ -124,7 +124,7 @@ class MangaReadAdapter(
         // Source Selection
         var source =
             media.selected!!.sourceIndex.let { if (it >= mangaReadSources.names.size) 0 else it }
-        val showNsfw = PrefManager.getVal(PrefName.ShowAdultContent)
+        val showNsfw: Boolean = PrefManager.getVal(PrefName.ShowAdultContent)
         val visibleSources = mangaReadSources.visibleIndices(showNsfw, source)
         setLanguageList(media.selected!!.langIndex, source)
         if (source in visibleSources) {
@@ -568,7 +568,7 @@ class MangaReadAdapter(
 
 
                 if (!sourceFound && PrefManager.getVal(PrefName.SearchSources)) {
-                    val showNsfw = PrefManager.getVal(PrefName.ShowAdultContent)
+                    val showNsfw: Boolean = PrefManager.getVal(PrefName.ShowAdultContent)
                     val visibleSources =
                         mangaReadSources.visibleIndices(showNsfw, media.selected!!.sourceIndex)
                     binding.mediaSource.setAdapter(

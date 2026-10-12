@@ -125,7 +125,7 @@ class NovelReadAdapter(
         // Source Selection
         var source =
             media.selected!!.sourceIndex.let { if (it >= novelReadSources.names.size) 0 else it }
-        val showNsfw = PrefManager.getVal(PrefName.ShowAdultContent)
+        val showNsfw: Boolean = PrefManager.getVal(PrefName.ShowAdultContent)
         val visibleSources = novelReadSources.visibleIndices(showNsfw, source)
 
         if (source in visibleSources) {
@@ -554,7 +554,7 @@ class NovelReadAdapter(
 
 
                 if (!sourceFound && PrefManager.getVal(PrefName.SearchSources)) {
-                    val showNsfw = PrefManager.getVal(PrefName.ShowAdultContent)
+                    val showNsfw: Boolean = PrefManager.getVal(PrefName.ShowAdultContent)
                     val visibleSources =
                         novelReadSources.visibleIndices(showNsfw, media.selected!!.sourceIndex)
                     binding.mediaSource.setAdapter(

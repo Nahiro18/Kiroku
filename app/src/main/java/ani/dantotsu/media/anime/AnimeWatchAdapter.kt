@@ -118,7 +118,7 @@ class AnimeWatchAdapter(
         // Source Selection
         var source =
             media.selected!!.sourceIndex.let { if (it >= watchSources.names.size) 0 else it }
-        val showNsfw = PrefManager.getVal(PrefName.ShowAdultContent)
+        val showNsfw: Boolean = PrefManager.getVal(PrefName.ShowAdultContent)
         val visibleSources = watchSources.visibleIndices(showNsfw, source)
         setLanguageList(media.selected!!.langIndex, source)
         if (source in visibleSources) {
@@ -500,7 +500,7 @@ class AnimeWatchAdapter(
                 binding.faqbutton.isGone = sourceFound
 
                 if (!sourceFound && PrefManager.getVal(PrefName.SearchSources) && autoSelect) {
-                    val showNsfw = PrefManager.getVal(PrefName.ShowAdultContent)
+                    val showNsfw: Boolean = PrefManager.getVal(PrefName.ShowAdultContent)
                     val visibleSources =
                         watchSources.visibleIndices(showNsfw, media.selected!!.sourceIndex)
                     binding.mediaSource.setAdapter(
