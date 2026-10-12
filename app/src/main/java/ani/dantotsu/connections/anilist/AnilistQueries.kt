@@ -962,7 +962,7 @@ class AnilistQueries {
         }
             }""".prepare()
         val response =
-            executeQuery<Query.Page>(aniMangaSearch(perPage), variables, true)?.data?.page
+            executeQuery<Query.Page>(aniMangaSearch(perPage, !showAdult), variables, true)?.data?.page
         if (response?.media != null) {
             val responseArray = arrayListOf<Media>()
             response.media?.forEach { i ->
