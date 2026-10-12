@@ -125,8 +125,10 @@ class NovelReadAdapter(
         // Source Selection
         var source =
             media.selected!!.sourceIndex.let { if (it >= novelReadSources.names.size) 0 else it }
-        
-        if (novelReadSources.names.isNotEmpty() && source in 0 until novelReadSources.names.size) {
+        val showNsfw = PrefManager.getVal(PrefName.ShowAdultContent)
+        val visibleSources = novelReadSources.visibleIndices(showNsfw, source)
+
+        if (source in visibleSources) {
             binding.mediaSource.setText(novelReadSources.names[source])
             novelReadSources[source]?.apply {
                 binding.mediaSourceTitle.text = showUserText
@@ -140,21 +142,22 @@ class NovelReadAdapter(
             ArrayAdapter(
                 fragment.requireContext(),
                 R.layout.item_dropdown,
-                novelReadSources.names
+                novelReadSources.visibleNames(showNsfw, source)
             )
         )
         binding.mediaSourceTitle.isSelected = true
         binding.mediaSource.setOnItemClickListener { _, _, i, _ ->
-            fragment.onSourceChange(i).apply {
+            val real = visibleSources[i]
+            fragment.onSourceChange(real).apply {
                 binding.mediaSourceTitle.text = showUserText
                 showUserTextListener = { MainScope().launch { binding.mediaSourceTitle.text = it } }
-                source = i
-                
+                source = real
+
             }
             subscribeButton(false)
             // Invalidate if it's the last source
-            val invalidate = i == novelReadSources.names.size - 1
-            fragment.loadChapters(i, invalidate)
+            val invalidate = real == novelReadSources.names.size - 1
+            fragment.loadChapters(real, invalidate)
         }
 
         // Language UI was disabled since LNReaders generally run off fixed English paths natively
@@ -551,15 +554,18 @@ class NovelReadAdapter(
 
 
                 if (!sourceFound && PrefManager.getVal(PrefName.SearchSources)) {
+                    val showNsfw = PrefManager.getVal(PrefName.ShowAdultContent)
+                    val visibleSources =
+                        novelReadSources.visibleIndices(showNsfw, media.selected!!.sourceIndex)
                     binding.mediaSource.setAdapter(
                         ArrayAdapter(
                             fragment.requireContext(),
                             R.layout.item_dropdown,
-                            novelReadSources.names
+                            visibleSources.map { novelReadSources.names[it] }
                         )
                     )
-                    if (novelReadSources.names.size > media.selected!!.sourceIndex + 1) {
-                        val nextIndex = media.selected!!.sourceIndex + 1
+                    val nextIndex = visibleSources.firstOrNull { it > media.selected!!.sourceIndex }
+                    if (nextIndex != null) {
                         binding.mediaSource.setText(
                             novelReadSources.names[nextIndex], false
                         )
@@ -567,7 +573,7 @@ class NovelReadAdapter(
                             binding.mediaSourceTitle.text = showUserText
                             showUserTextListener =
                                 { MainScope().launch { binding.mediaSourceTitle.text = it } }
-                            
+
                         }
                         subscribeButton(false)
                         // Invalidate if it's the last source

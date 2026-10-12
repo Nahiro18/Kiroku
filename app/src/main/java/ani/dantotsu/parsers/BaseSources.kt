@@ -179,6 +179,15 @@ abstract class BaseSources {
 
     val names: List<String> get() = list.map { it.name }
 
+    fun visibleIndices(showNsfw: Boolean, keepIndex: Int = -1): List<Int> =
+        list.indices.filter { i ->
+            i == keepIndex || showNsfw ||
+                runCatching { list[i].get.value?.isNSFW != true }.getOrDefault(true)
+        }
+
+    fun visibleNames(showNsfw: Boolean, keepIndex: Int = -1): List<String> =
+        visibleIndices(showNsfw, keepIndex).map { list[it].name }
+
     fun flushText() {
         list.forEach {
             if (it.get.isInitialized())

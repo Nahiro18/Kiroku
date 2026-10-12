@@ -118,8 +118,10 @@ class AnimeWatchAdapter(
         // Source Selection
         var source =
             media.selected!!.sourceIndex.let { if (it >= watchSources.names.size) 0 else it }
+        val showNsfw = PrefManager.getVal(PrefName.ShowAdultContent)
+        val visibleSources = watchSources.visibleIndices(showNsfw, source)
         setLanguageList(media.selected!!.langIndex, source)
-        if (watchSources.names.isNotEmpty() && source in 0 until watchSources.names.size) {
+        if (source in visibleSources) {
             binding.mediaSource.setText(watchSources.names[source])
             watchSources[source].apply {
                 this.selectDub = media.selected!!.preferDub
@@ -133,23 +135,24 @@ class AnimeWatchAdapter(
             ArrayAdapter(
                 fragment.requireContext(),
                 R.layout.item_dropdown,
-                watchSources.names
+                watchSources.visibleNames(showNsfw, source)
             )
         )
         binding.mediaSourceTitle.isSelected = true
         binding.mediaSource.setOnItemClickListener { _, _, i, _ ->
-            fragment.onSourceChange(i).apply {
+            val real = visibleSources[i]
+            fragment.onSourceChange(real).apply {
                 binding.mediaSourceTitle.text = showUserText
                 showUserTextListener = { MainScope().launch { binding.mediaSourceTitle.text = it } }
                 changing = true
                 binding.animeSourceDubbed.isChecked = selectDub
                 changing = false
                 binding.animeSourceDubbedCont.isVisible = isDubAvailableSeparately()
-                source = i
-                setLanguageList(0, i)
+                source = real
+                setLanguageList(0, real)
             }
             subscribeButton(false)
-            fragment.loadEpisodes(i, false)
+            fragment.loadEpisodes(real, false)
         }
 
         binding.mediaSourceLanguage.setOnItemClickListener { _, _, i, _ ->
@@ -497,15 +500,18 @@ class AnimeWatchAdapter(
                 binding.faqbutton.isGone = sourceFound
 
                 if (!sourceFound && PrefManager.getVal(PrefName.SearchSources) && autoSelect) {
+                    val showNsfw = PrefManager.getVal(PrefName.ShowAdultContent)
+                    val visibleSources =
+                        watchSources.visibleIndices(showNsfw, media.selected!!.sourceIndex)
                     binding.mediaSource.setAdapter(
                         ArrayAdapter(
                             fragment.requireContext(),
                             R.layout.item_dropdown,
-                            watchSources.names
+                            visibleSources.map { watchSources.names[it] }
                         )
                     )
-                    if (watchSources.names.size > media.selected!!.sourceIndex + 1) {
-                        val nextIndex = media.selected!!.sourceIndex + 1
+                    val nextIndex = visibleSources.firstOrNull { it > media.selected!!.sourceIndex }
+                    if (nextIndex != null) {
                         binding.mediaSource.setText(
                             watchSources.names[nextIndex], false
                         )

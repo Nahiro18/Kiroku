@@ -393,12 +393,12 @@ class SettingsCommonActivity : AppCompatActivity() {
                         ),
                         Settings(
                             type = 2,
-                            name = getString(R.string.adult_only_content),
-                            desc = getString(R.string.adult_only_content_desc),
+                            name = getString(R.string.show_adult_content),
+                            desc = getString(R.string.show_adult_content_desc),
                             icon = R.drawable.ic_round_nsfw_24,
-                            isChecked = PrefManager.getVal(PrefName.AdultOnly),
+                            isChecked = PrefManager.getVal(PrefName.ShowAdultContent),
                             switch = { isChecked, _ ->
-                                PrefManager.setVal(PrefName.AdultOnly, isChecked)
+                                PrefManager.setVal(PrefName.ShowAdultContent, isChecked)
                                 restartApp()
                             },
                             isVisible = Anilist.adult,

@@ -145,7 +145,6 @@ class AnilistAnimeViewModel : ViewModel() {
                 season = season,
                 seasonYear = year,
                 hd = true,
-                adultOnly = PrefManager.getVal(PrefName.AdultOnly)
             )?.results
         )
     }
@@ -168,7 +167,6 @@ class AnilistAnimeViewModel : ViewModel() {
                 onList = if (onList) null else false,
                 sort = sort,
                 genres = genres,
-                adultOnly = PrefManager.getVal(PrefName.AdultOnly)
             )
         )
     }
@@ -189,7 +187,6 @@ class AnilistAnimeViewModel : ViewModel() {
             r.countryOfOrigin,
             r.isAdult,
             r.onList,
-            adultOnly = PrefManager.getVal(PrefName.AdultOnly),
         )
     )
 
@@ -238,7 +235,6 @@ class AnilistMangaViewModel : ViewModel() {
                 perPage = 10,
                 sort = Anilist.sortBy[2],
                 hd = true,
-                adultOnly = PrefManager.getVal(PrefName.AdultOnly)
             )?.results
         )
 
@@ -259,7 +255,6 @@ class AnilistMangaViewModel : ViewModel() {
                 onList = if (onList) null else false,
                 sort = sort,
                 genres = genres,
-                adultOnly = PrefManager.getVal(PrefName.AdultOnly)
             )
         )
     }
@@ -284,8 +279,7 @@ class AnilistMangaViewModel : ViewModel() {
             r.excludedTags,
             r.startYear,
             r.seasonYear,
-            r.season,
-            adultOnly = PrefManager.getVal(PrefName.AdultOnly)
+            r.season
         )
     )
 

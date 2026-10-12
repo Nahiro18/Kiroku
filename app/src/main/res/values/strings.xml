@@ -920,7 +920,7 @@ Non quae tempore quo provident laudantium qui illo dolor vel quia dolor et exerc
     <string name="most_favourite">Most Favourite</string>
     <string name="trending_manhwa">Trending Manhwa</string>
     <string name="liked_by">Liked By</string>
-    <string name="adult_only_content">Adult only content</string>
+    <string name="show_adult_content">Show +18 content</string>
     <string name="dir_error">Your path could not be set</string>
     <string name="dir_access">Downloads access</string>
     <string name="dir_access_msg">Please choose a directory to save your downloads</string>
@@ -977,7 +977,7 @@ Non quae tempore quo provident laudantium qui illo dolor vel quia dolor et exerc
     <string name="always_continue_content_desc">Continue where you left off</string>
     <string name="search_source_list_desc">Auto-select the next server if the previous server doesn\'t have the media</string>
     <string name="recentlyListOnly_desc">Show only your list items in the recent tab</string>
-    <string name="adult_only_content_desc">Show only adult content in the explore page</string>
+    <string name="show_adult_content_desc">Include +18 results and sources in search and lists</string>
     <string name="anime_add_repository_desc">Add Anime Extensions from various sources</string>
     <string name="manga_add_repository_desc">Add Manga Extensions from various sources</string>
     <string name="novel_add_repository_desc">Add Novel Extensions from various sources</string>

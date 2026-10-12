@@ -21,6 +21,9 @@ import ani.dantotsu.media.MediaDetailsActivity
 import ani.dantotsu.navBarHeight
 import ani.dantotsu.themes.ThemeManager
 import ani.dantotsu.toast
+import com.canhub.cropper.CropImageContract
+import com.canhub.cropper.CropImageContractOptions
+import com.canhub.cropper.CropImageOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -29,25 +32,34 @@ class ImageSearchActivity : AppCompatActivity() {
     private lateinit var binding: ActivityImageSearchBinding
     private val viewModel: ImageSearchViewModel by viewModels()
 
-    private val imageSelectionLauncher =
-        registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-            uri?.let { imageUri ->
-                val contentResolver = applicationContext.contentResolver
-                lifecycleScope.launch(Dispatchers.IO) {
-                    withContext(Dispatchers.Main) {
-                        binding.progressBar.visibility = View.VISIBLE
-                    }
-                    val inputStream = contentResolver.openInputStream(imageUri)
-
-                    if (inputStream != null) viewModel.analyzeImage(inputStream)
-                    else toast(getString(R.string.error_loading_image))
-
-                    withContext(Dispatchers.Main) {
-                        binding.progressBar.visibility = View.GONE
-                    }
-                }
+    private val cropImageLauncher =
+        registerForActivityResult(CropImageContract()) { result ->
+            if (result.isSuccessful) {
+                result.uriContent?.let { analyzeUri(it) }
+            } else {
+                toast(result.error?.message ?: getString(R.string.error_loading_image))
             }
         }
+
+    private val imageSelectionLauncher =
+        registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+            uri?.let { cropImageLauncher.launch(CropImageContractOptions(it, CropImageOptions())) }
+        }
+
+    private fun analyzeUri(imageUri: Uri) {
+        val contentResolver = applicationContext.contentResolver
+        lifecycleScope.launch(Dispatchers.IO) {
+            withContext(Dispatchers.Main) {
+                binding.progressBar.visibility = View.VISIBLE
+            }
+            val inputStream = contentResolver.openInputStream(imageUri)
+            if (inputStream != null) viewModel.analyzeImage(inputStream)
+            else toast(getString(R.string.error_loading_image))
+            withContext(Dispatchers.Main) {
+                binding.progressBar.visibility = View.GONE
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

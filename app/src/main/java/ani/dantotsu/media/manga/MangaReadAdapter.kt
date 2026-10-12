@@ -124,8 +124,10 @@ class MangaReadAdapter(
         // Source Selection
         var source =
             media.selected!!.sourceIndex.let { if (it >= mangaReadSources.names.size) 0 else it }
+        val showNsfw = PrefManager.getVal(PrefName.ShowAdultContent)
+        val visibleSources = mangaReadSources.visibleIndices(showNsfw, source)
         setLanguageList(media.selected!!.langIndex, source)
-        if (mangaReadSources.names.isNotEmpty() && source in 0 until mangaReadSources.names.size) {
+        if (source in visibleSources) {
             binding.mediaSource.setText(mangaReadSources.names[source])
             mangaReadSources[source].apply {
                 binding.mediaSourceTitle.text = showUserText
@@ -139,21 +141,22 @@ class MangaReadAdapter(
             ArrayAdapter(
                 fragment.requireContext(),
                 R.layout.item_dropdown,
-                mangaReadSources.names
+                mangaReadSources.visibleNames(showNsfw, source)
             )
         )
         binding.mediaSourceTitle.isSelected = true
         binding.mediaSource.setOnItemClickListener { _, _, i, _ ->
-            fragment.onSourceChange(i).apply {
+            val real = visibleSources[i]
+            fragment.onSourceChange(real).apply {
                 binding.mediaSourceTitle.text = showUserText
                 showUserTextListener = { MainScope().launch { binding.mediaSourceTitle.text = it } }
-                source = i
-                setLanguageList(0, i)
+                source = real
+                setLanguageList(0, real)
             }
             subscribeButton(false)
             // Invalidate if it's the last source
-            val invalidate = i == mangaReadSources.names.size - 1
-            fragment.loadChapters(i, invalidate)
+            val invalidate = real == mangaReadSources.names.size - 1
+            fragment.loadChapters(real, invalidate)
         }
 
         binding.mediaSourceLanguage.setOnItemClickListener { _, _, i, _ ->
@@ -565,15 +568,18 @@ class MangaReadAdapter(
 
 
                 if (!sourceFound && PrefManager.getVal(PrefName.SearchSources)) {
+                    val showNsfw = PrefManager.getVal(PrefName.ShowAdultContent)
+                    val visibleSources =
+                        mangaReadSources.visibleIndices(showNsfw, media.selected!!.sourceIndex)
                     binding.mediaSource.setAdapter(
                         ArrayAdapter(
                             fragment.requireContext(),
                             R.layout.item_dropdown,
-                            mangaReadSources.names
+                            visibleSources.map { mangaReadSources.names[it] }
                         )
                     )
-                    if (mangaReadSources.names.size > media.selected!!.sourceIndex + 1) {
-                        val nextIndex = media.selected!!.sourceIndex + 1
+                    val nextIndex = visibleSources.firstOrNull { it > media.selected!!.sourceIndex }
+                    if (nextIndex != null) {
                         binding.mediaSource.setText(
                             mangaReadSources.names[nextIndex], false
                         )

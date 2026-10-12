@@ -914,11 +914,10 @@ class AnilistQueries {
         seasonYear: Int? = null,
         season: String? = null,
         id: Int? = null,
-        hd: Boolean = false,
-        adultOnly: Boolean = false
+        hd: Boolean = false
     ): AniMangaSearchResults? {
-        val variables = """{"type":"$type","isAdult":$isAdult
-            ${if (adultOnly) ""","isAdult":true""" else ""}
+        val showAdult = PrefManager.getVal(PrefName.ShowAdultContent)
+        val variables = """{"type":"$type"${if (showAdult) "" else ""","isAdult":$isAdult"""}
             ${if (onList != null) ""","onList":$onList""" else ""}
             ${if (page != null) ""","page":"$page"""" else ""}
             ${if (id != null) ""","id":"$id"""" else ""}
@@ -1191,7 +1190,7 @@ class AnilistQueries {
             type == "MANGA" && !getPreference(PrefName.IncludeMangaList) -> "onList:false"
             else -> ""
         }
-        val isAdult = if (getPreference(PrefName.AdultOnly)) "isAdult:true" else ""
+        val isAdult = if (getPreference(PrefName.ShowAdultContent)) "" else "isAdult:false"
         val formatFilter = format?.let { "format:$it, " } ?: ""
         val countryFilter = country?.let { "countryOfOrigin:$it, " } ?: ""
 
@@ -1263,13 +1262,12 @@ class AnilistQueries {
 
         fun filterRecentUpdates(page: Page?): ArrayList<Media> {
             val listOnly = getPreference(PrefName.RecentlyListOnly)
-            val adultOnly = getPreference(PrefName.AdultOnly)
+            val showAdult = getPreference(PrefName.ShowAdultContent)
             val idArr = mutableSetOf<Int>()
             return page?.airingSchedules?.mapNotNull { i ->
                 i.media?.takeIf { !idArr.contains(it.id) }?.let {
                     val shouldAdd = when {
-                        !listOnly && it.countryOfOrigin == "JP" && adultOnly && it.isAdult == true -> true
-                        !listOnly && !adultOnly && it.countryOfOrigin == "JP" && it.isAdult == false -> true
+                        !listOnly && it.countryOfOrigin == "JP" && (showAdult || it.isAdult == false) -> true
                         listOnly && it.mediaListEntry != null -> true
                         else -> false
                     }
