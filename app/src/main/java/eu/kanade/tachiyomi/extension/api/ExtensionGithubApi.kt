@@ -270,9 +270,10 @@ internal class ExtensionGithubApi {
         }
     }
 
-    private fun <T> List<T>.distinctByPkg(selector: (T) -> String): List<T> {
-        val seen = mutableSetOf<String>()
-        return filter { seen.add(selector(it)) }
+    private fun <T> List<T>.distinctByPkg(selector: (T) -> String, version: (T) -> Long): List<T> {
+        // When the same package exists in several repos, keep the newest one so
+        // updates from any repo (e.g. a fork) are always detected.
+        return groupBy(selector).map { (_, list) -> list.maxBy(version) }
     }
 
     suspend fun findAnimeExtensions(): List<AnimeExtension.Available> {
@@ -291,7 +292,7 @@ internal class ExtensionGithubApi {
                     Logger.log(e)
                     emptyList()
                 }
-            }.flatten().distinctByPkg { it.pkgName }
+            }.flatten().distinctByPkg({ it.pkgName }, { it.versionCode })
         }
     }
 
@@ -356,7 +357,7 @@ internal class ExtensionGithubApi {
                     Logger.log(e)
                     emptyList()
                 }
-            }.flatten().distinctByPkg { it.pkgName }
+            }.flatten().distinctByPkg({ it.pkgName }, { it.versionCode })
         }
     }
 
@@ -418,7 +419,7 @@ internal class ExtensionGithubApi {
                     Logger.log(e)
                 }
                 found.toList()
-            }.flatten().distinctByPkg { it.pkgName }
+            }.flatten().distinctByPkg({ it.pkgName }, { it.versionCode })
         }
     }
 
