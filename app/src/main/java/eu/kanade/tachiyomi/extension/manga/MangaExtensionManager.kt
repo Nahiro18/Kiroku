@@ -14,7 +14,6 @@ import eu.kanade.tachiyomi.extension.manga.model.MangaLoadResult
 import eu.kanade.tachiyomi.extension.util.ExtensionInstallReceiver
 import eu.kanade.tachiyomi.extension.util.ExtensionInstaller
 import eu.kanade.tachiyomi.extension.util.ExtensionLoader
-import eu.kanade.tachiyomi.extension.util.IncompatibleExtension
 import eu.kanade.tachiyomi.util.preference.plusAssign
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.async
@@ -90,9 +89,6 @@ class MangaExtensionManager(
     private val _untrustedExtensionsFlow = MutableStateFlow(emptyList<MangaExtension.Untrusted>())
     val untrustedExtensionsFlow = _untrustedExtensionsFlow.asStateFlow()
 
-    private val _incompatibleExtensionsFlow = MutableStateFlow(emptyList<IncompatibleExtension>())
-    val incompatibleExtensionsFlow = _incompatibleExtensionsFlow.asStateFlow()
-
     init {
         initExtensions()
         ExtensionInstallReceiver().setMangaListener(InstallationListener()).register(context)
@@ -111,10 +107,6 @@ class MangaExtensionManager(
         _untrustedExtensionsFlow.value = extensions
             .filterIsInstance<MangaLoadResult.Untrusted>()
             .map { it.extension }
-
-        _incompatibleExtensionsFlow.value = extensions
-            .filterIsInstance<MangaLoadResult.Incompatible>()
-            .map { IncompatibleExtension(it.pkgName, it.label, it.reason) }
 
         isInitialized = true
     }
@@ -297,10 +289,6 @@ class MangaExtensionManager(
         if (untrustedExtension != null) {
             _untrustedExtensionsFlow.value -= untrustedExtension
         }
-        val incompatibleExtension = _incompatibleExtensionsFlow.value.find { it.pkgName == pkgName }
-        if (incompatibleExtension != null) {
-            _incompatibleExtensionsFlow.value -= incompatibleExtension
-        }
     }
 
     /**
@@ -320,16 +308,6 @@ class MangaExtensionManager(
 
         override fun onExtensionUntrusted(extension: MangaExtension.Untrusted) {
             _untrustedExtensionsFlow.value += extension
-        }
-
-        override fun onExtensionIncompatible(pkgName: String, label: String, reason: String) {
-            _installedExtensionsFlow.value.find { it.pkgName == pkgName }?.let {
-                _installedExtensionsFlow.value -= it
-            }
-            _incompatibleExtensionsFlow.value =
-                _incompatibleExtensionsFlow.value.filterNot { it.pkgName == pkgName } +
-                IncompatibleExtension(pkgName, label, reason)
-            updatePendingUpdatesCount()
         }
 
         override fun onPackageUninstalled(pkgName: String) {

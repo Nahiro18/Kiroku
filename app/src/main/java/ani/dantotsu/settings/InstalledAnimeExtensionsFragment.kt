@@ -39,7 +39,6 @@ import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.extension.anime.AnimeExtensionManager
 import eu.kanade.tachiyomi.extension.anime.model.AnimeExtension
-import eu.kanade.tachiyomi.extension.util.IncompatibleExtension
 import kotlinx.coroutines.launch
 import rx.android.schedulers.AndroidSchedulers
 import uy.kohesive.injekt.Injekt
@@ -236,33 +235,7 @@ class InstalledAnimeExtensionsFragment : Fragment(), SearchQueryHandler {
                 extensionsAdapter.updateData(sortToAnimeSourcesList(extensions))
             }
         }
-        lifecycleScope.launch {
-            animeExtensionManager.incompatibleExtensionsFlow.collect { incompatible ->
-                if (incompatible.isNotEmpty()) {
-                    showIncompatibleDialog(incompatible)
-                }
-            }
-        }
         return binding.root
-    }
-
-    private var incompatibleDialogShown = false
-
-    private fun showIncompatibleDialog(incompatible: List<IncompatibleExtension>) {
-        if (incompatibleDialogShown || !isAdded) return
-        incompatibleDialogShown = true
-        val message = incompatible.joinToString("\n") { "• ${it.label} — ${it.reason}" } +
-            "\n\n" + getString(R.string.incompatible_extensions_desc)
-        requireContext().customAlertDialog().apply {
-            setTitle(getString(R.string.incompatible_extensions_title) + " (${incompatible.size})")
-            setMessage(message)
-            setPosButton(R.string.incompatible_extensions_uninstall_all) {
-                incompatible.forEach { animeExtensionManager.uninstallExtension(it.pkgName) }
-            }
-            setNegButton(R.string.close, null)
-            onDismiss { incompatibleDialogShown = false }
-            show()
-        }
     }
 
 

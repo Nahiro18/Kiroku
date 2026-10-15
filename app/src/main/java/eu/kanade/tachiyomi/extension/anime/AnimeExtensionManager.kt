@@ -9,7 +9,6 @@ import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.extension.InstallStep
 import eu.kanade.tachiyomi.extension.anime.model.AnimeExtension
 import eu.kanade.tachiyomi.extension.anime.model.AnimeLoadResult
-import eu.kanade.tachiyomi.extension.util.IncompatibleExtension
 import eu.kanade.tachiyomi.extension.anime.model.AvailableAnimeSources
 import eu.kanade.tachiyomi.extension.api.ExtensionGithubApi
 import eu.kanade.tachiyomi.extension.util.ExtensionInstallReceiver
@@ -93,10 +92,6 @@ class AnimeExtensionManager(
         MutableStateFlow(emptyList<AnimeExtension.Untrusted>())
     val untrustedExtensionsFlow = _untrustedAnimeExtensionsFlow.asStateFlow()
 
-    private val _incompatibleExtensionsFlow =
-        MutableStateFlow(emptyList<IncompatibleExtension>())
-    val incompatibleExtensionsFlow = _incompatibleExtensionsFlow.asStateFlow()
-
     init {
         initAnimeExtensions()
         ExtensionInstallReceiver().setAnimeListener(InstallationListener()).register(context)
@@ -115,10 +110,6 @@ class AnimeExtensionManager(
         _untrustedAnimeExtensionsFlow.value = animeextensions
             .filterIsInstance<AnimeLoadResult.Untrusted>()
             .map { it.extension }
-
-        _incompatibleExtensionsFlow.value = animeextensions
-            .filterIsInstance<AnimeLoadResult.Incompatible>()
-            .map { IncompatibleExtension(it.pkgName, it.label, it.reason) }
 
         isInitialized = true
     }
@@ -304,11 +295,6 @@ class AnimeExtensionManager(
         if (untrustedAnimeExtension != null) {
             _untrustedAnimeExtensionsFlow.value -= untrustedAnimeExtension
         }
-        val incompatibleAnimeExtension =
-            _incompatibleExtensionsFlow.value.find { it.pkgName == pkgName }
-        if (incompatibleAnimeExtension != null) {
-            _incompatibleExtensionsFlow.value -= incompatibleAnimeExtension
-        }
     }
 
     /**
@@ -328,16 +314,6 @@ class AnimeExtensionManager(
 
         override fun onExtensionUntrusted(extension: AnimeExtension.Untrusted) {
             _untrustedAnimeExtensionsFlow.value += extension
-        }
-
-        override fun onExtensionIncompatible(pkgName: String, label: String, reason: String) {
-            _installedAnimeExtensionsFlow.value.find { it.pkgName == pkgName }?.let {
-                _installedAnimeExtensionsFlow.value -= it
-            }
-            _incompatibleExtensionsFlow.value =
-                _incompatibleExtensionsFlow.value.filterNot { it.pkgName == pkgName } +
-                IncompatibleExtension(pkgName, label, reason)
-            updatePendingUpdatesCount()
         }
 
         override fun onPackageUninstalled(pkgName: String) {

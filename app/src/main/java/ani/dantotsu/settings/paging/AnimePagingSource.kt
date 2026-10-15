@@ -21,11 +21,9 @@ import ani.dantotsu.databinding.ItemExtensionAllBinding
 import ani.dantotsu.others.LanguageMapper
 import ani.dantotsu.settings.saving.PrefManager
 import ani.dantotsu.settings.saving.PrefName
-import ani.dantotsu.util.customAlertDialog
 import com.bumptech.glide.Glide
 import eu.kanade.tachiyomi.extension.anime.AnimeExtensionManager
 import eu.kanade.tachiyomi.extension.anime.model.AnimeExtension
-import eu.kanade.tachiyomi.extension.util.ExtensionLoader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -183,39 +181,20 @@ class AnimeExtensionAdapter(private val clickListener: OnAnimeInstallClickListen
                 if (bindingAdapterPosition == RecyclerView.NO_POSITION) return@setOnClickListener
                 val extension = getItem(bindingAdapterPosition)
                 if (extension != null) {
-                    if (isCompatible(extension)) {
-                        startInstall(extension)
-                    } else {
-                        binding.root.context.customAlertDialog().apply {
-                            setTitle(R.string.incompatible_install_title)
-                            setMessage(
-                                R.string.incompatible_install_message,
-                                "${extension.name} (${extension.versionName})\n${incompatibilityReason(extension)}"
-                            )
-                            setPosButton(R.string.incompatible_install_anyway) {
-                                startInstall(extension)
+                    clickListener.onInstallClick(extension)
+                    binding.closeTextView.setImageResource(R.drawable.ic_sync)
+                    scope.launch {
+                        while (isActive) {
+                            withContext(Dispatchers.Main) {
+                                binding.closeTextView.animate()
+                                    .rotationBy(360f)
+                                    .setDuration(1000)
+                                    .setInterpolator(LinearInterpolator())
+                                    .start()
                             }
-                            setNegButton(R.string.cancel, null)
-                            show()
+                            delay(1000)
                         }
                     }
-                }
-            }
-        }
-
-        private fun startInstall(extension: AnimeExtension.Available) {
-            clickListener.onInstallClick(extension)
-            binding.closeTextView.setImageResource(R.drawable.ic_sync)
-            scope.launch {
-                while (isActive) {
-                    withContext(Dispatchers.Main) {
-                        binding.closeTextView.animate()
-                            .rotationBy(360f)
-                            .setDuration(1000)
-                            .setInterpolator(LinearInterpolator())
-                            .start()
-                    }
-                    delay(1000)
                 }
             }
         }
@@ -226,8 +205,7 @@ class AnimeExtensionAdapter(private val clickListener: OnAnimeInstallClickListen
             val nsfw = if (extension.isNsfw) "(18+)" else ""
             val lang = LanguageMapper.getLanguageName(extension.lang)
             binding.extensionNameTextView.text = extension.name
-            val compat = if (isCompatible(extension)) "" else " • ${binding.root.context.getString(R.string.incompatible_badge)}"
-            val versionText = "$lang ${extension.versionName} $nsfw$compat"
+            val versionText = "$lang ${extension.versionName} $nsfw"
             binding.extensionVersionTextView.text = versionText
         }
 
@@ -244,13 +222,4 @@ class AnimeExtensionAdapter(private val clickListener: OnAnimeInstallClickListen
 
 interface OnAnimeInstallClickListener {
     fun onInstallClick(pkg: AnimeExtension.Available)
-}
-
-private fun isCompatible(extension: AnimeExtension.Available): Boolean {
-    return extension.libVersion in ExtensionLoader.ANIME_LIB_VERSION_MIN.toDouble()..ExtensionLoader.ANIME_LIB_VERSION_MAX.toDouble()
-}
-
-private fun incompatibilityReason(extension: AnimeExtension.Available): String {
-    return "Requires extension API v${extension.libVersion} " +
-        "(this app supports v${ExtensionLoader.ANIME_LIB_VERSION_MIN} to v${ExtensionLoader.ANIME_LIB_VERSION_MAX})"
 }

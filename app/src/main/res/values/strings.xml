@@ -190,13 +190,6 @@
     <string name="settings">Settings</string>
     <string name="extensions">Extensions</string>
     <string name="extension_updates_available">Extension updates available</string>
-    <string name="incompatible_extensions_title">Incompatible extensions</string>
-    <string name="incompatible_extensions_desc">These installed extensions can\'t run on this app version. Uninstall them, or update the app when a newer version adds support.</string>
-    <string name="incompatible_extensions_uninstall_all">Uninstall all</string>
-    <string name="incompatible_badge">Incompatible</string>
-    <string name="incompatible_install_title">Incompatible extension</string>
-    <string name="incompatible_install_message">This extension can\'t run on this app version:\n\n%1$s\n\nYou can still install it, but it won\'t work.</string>
-    <string name="incompatible_install_anyway">Install anyway</string>
     <string name="player_settings">Player Settings</string>
     <string name="recentlyListOnly">Only show my content in \"Recently Updated\"</string>
     <string name="download_manager_select">Download Manager</string>
