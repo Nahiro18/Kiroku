@@ -74,6 +74,28 @@ internal object ExtensionLoader {
                 PackageManager.GET_SIGNING_CERTIFICATES else 0)
 
     /**
+     * Returns the linkage failure when [error] (or one of its causes) shows the
+     * extension was built for a newer extension API than this app implements
+     * (e.g. compiler-generated sources the app cannot instantiate), null otherwise.
+     */
+    private fun findApiMismatch(error: Throwable): Throwable? {
+        var current: Throwable? = error
+        repeat(8) {
+            when (current) {
+                is InstantiationException,
+                is NoSuchMethodError,
+                is NoClassDefFoundError,
+                is AbstractMethodError,
+                is VerifyError,
+                -> return current
+                null -> return null
+            }
+            current = current?.cause
+        }
+        return null
+    }
+
+    /**
      * Return a list of all the installed extensions initialized concurrently.
      *
      * @param context The application context.
@@ -232,7 +254,12 @@ internal object ExtensionLoader {
                 "Lib version is $libVersion, while only versions " +
                         "$ANIME_LIB_VERSION_MIN to $ANIME_LIB_VERSION_MAX are allowed"
             )
-            return AnimeLoadResult.Error
+            return AnimeLoadResult.Incompatible(
+                pkgName = pkgName,
+                label = extName,
+                reason = "Requires extension API v$libVersion " +
+                        "(this app supports v$ANIME_LIB_VERSION_MIN to v$ANIME_LIB_VERSION_MAX)",
+            )
         }
 
         val isNsfw = appInfo.metaData.getInt("$ANIME_PACKAGE$XX_METADATA_NSFW") == 1
@@ -272,6 +299,15 @@ internal object ExtensionLoader {
                         else -> throw Exception("Unknown source class type! ${obj.javaClass}")
                     }
                 } catch (e: Throwable) {
+                    val mismatch = findApiMismatch(e)
+                    if (mismatch != null) {
+                        Logger.log("Extension $extName needs a newer app version ($mismatch)")
+                        return AnimeLoadResult.Incompatible(
+                            pkgName = pkgName,
+                            label = extName,
+                            reason = "Built for a newer extension API (${mismatch.javaClass.simpleName})",
+                        )
+                    }
                     Logger.log("Extension load error: $extName ($it)")
                     return AnimeLoadResult.Error
                 }
@@ -336,7 +372,12 @@ internal object ExtensionLoader {
                 "Lib version is $libVersion, while only versions " +
                         "$MANGA_LIB_VERSION_MIN to $MANGA_LIB_VERSION_MAX are allowed"
             )
-            return MangaLoadResult.Error
+            return MangaLoadResult.Incompatible(
+                pkgName = pkgName,
+                label = extName,
+                reason = "Requires extension API v$libVersion " +
+                        "(this app supports v$MANGA_LIB_VERSION_MIN to v$MANGA_LIB_VERSION_MAX)",
+            )
         }
 
         val isNsfw = appInfo.metaData.getInt("$MANGA_PACKAGE$XX_METADATA_NSFW") == 1
@@ -376,6 +417,15 @@ internal object ExtensionLoader {
                         else -> throw Exception("Unknown source class type! ${obj.javaClass}")
                     }
                 } catch (e: Throwable) {
+                    val mismatch = findApiMismatch(e)
+                    if (mismatch != null) {
+                        Logger.log("Extension $extName needs a newer app version ($mismatch)")
+                        return MangaLoadResult.Incompatible(
+                            pkgName = pkgName,
+                            label = extName,
+                            reason = "Built for a newer extension API (${mismatch.javaClass.simpleName})",
+                        )
+                    }
                     Logger.log("Extension load error: $extName ($it)")
                     return MangaLoadResult.Error
                 }

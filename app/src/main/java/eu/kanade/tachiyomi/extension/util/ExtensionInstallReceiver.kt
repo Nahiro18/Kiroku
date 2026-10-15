@@ -83,6 +83,12 @@ internal class ExtensionInstallReceiver : BroadcastReceiver() {
                                     result.extension
                                 )
 
+                                is AnimeLoadResult.Incompatible -> animeListener?.onExtensionIncompatible(
+                                    result.pkgName,
+                                    result.label,
+                                    result.reason
+                                )
+
                                 else -> {}
                             }
                         }
@@ -95,6 +101,12 @@ internal class ExtensionInstallReceiver : BroadcastReceiver() {
 
                                 is MangaLoadResult.Untrusted -> mangaListener?.onExtensionUntrusted(
                                     result.extension
+                                )
+
+                                is MangaLoadResult.Incompatible -> mangaListener?.onExtensionIncompatible(
+                                    result.pkgName,
+                                    result.label,
+                                    result.reason
                                 )
 
                                 else -> {}
@@ -125,6 +137,12 @@ internal class ExtensionInstallReceiver : BroadcastReceiver() {
                                     result.extension
                                 )
 
+                                is AnimeLoadResult.Incompatible -> animeListener?.onExtensionIncompatible(
+                                    result.pkgName,
+                                    result.label,
+                                    result.reason
+                                )
+
                                 else -> {}
                             }
                         }
@@ -133,6 +151,12 @@ internal class ExtensionInstallReceiver : BroadcastReceiver() {
                             when (val result = getMangaExtensionFromIntent(context, intent)) {
                                 is MangaLoadResult.Success -> mangaListener?.onExtensionUpdated(
                                     result.extension
+                                )
+
+                                is MangaLoadResult.Incompatible -> mangaListener?.onExtensionIncompatible(
+                                    result.pkgName,
+                                    result.label,
+                                    result.reason
                                 )
 
                                 else -> {}
@@ -246,6 +270,7 @@ internal class ExtensionInstallReceiver : BroadcastReceiver() {
         fun onExtensionInstalled(extension: AnimeExtension.Installed)
         fun onExtensionUpdated(extension: AnimeExtension.Installed)
         fun onExtensionUntrusted(extension: AnimeExtension.Untrusted)
+        fun onExtensionIncompatible(pkgName: String, label: String, reason: String)
         fun onPackageUninstalled(pkgName: String)
     }
 
@@ -253,6 +278,7 @@ internal class ExtensionInstallReceiver : BroadcastReceiver() {
         fun onExtensionInstalled(extension: MangaExtension.Installed)
         fun onExtensionUpdated(extension: MangaExtension.Installed)
         fun onExtensionUntrusted(extension: MangaExtension.Untrusted)
+        fun onExtensionIncompatible(pkgName: String, label: String, reason: String)
         fun onPackageUninstalled(pkgName: String)
     }
 
