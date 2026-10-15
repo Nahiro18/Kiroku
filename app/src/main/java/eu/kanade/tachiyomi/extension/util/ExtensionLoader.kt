@@ -83,6 +83,8 @@ internal object ExtensionLoader {
         repeat(8) {
             when (current) {
                 is InstantiationException,
+                is IllegalAccessException,
+                is NoSuchMethodException,
                 is NoSuchMethodError,
                 is NoClassDefFoundError,
                 is AbstractMethodError,
