@@ -13,7 +13,6 @@ import eu.kanade.tachiyomi.network.interceptor.UncaughtExceptionInterceptor
 import eu.kanade.tachiyomi.network.interceptor.UserAgentInterceptor
 import okhttp3.Cache
 import okhttp3.OkHttpClient
-import okhttp3.brotli.BrotliInterceptor
 import okhttp3.logging.HttpLoggingInterceptor
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -97,7 +96,6 @@ private fun setupSocks5Proxy() {
                 }
             }
             .addInterceptor(UserAgentInterceptor(::defaultUserAgentProvider))
-            .addNetworkInterceptor(BrotliInterceptor)
             .addNetworkInterceptor { chain ->
                 val response = chain.proceed(chain.request())
                 if (response.code in listOf(403, 503) || response.header("Server")?.contains("cloudflare", ignoreCase = true) == true) {
