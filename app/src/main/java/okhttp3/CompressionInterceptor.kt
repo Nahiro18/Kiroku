@@ -3,6 +3,7 @@ package okhttp3
 import okio.BufferedSource
 import okio.Source
 import okio.buffer
+import okio.source
 
 /**
  * Compatibility shim mirroring OkHttp 5's transparent-decompression interceptor.
@@ -32,10 +33,18 @@ class CompressionInterceptor(vararg val codecs: DecompressionAlgorithm) : Interc
         if (body.contentLength() == 0L) return response
         return try {
             val decoded = Gzip.decompress(body.source()).buffer().readByteArray()
+            val mediaType = body.contentType()
             response.newBuilder()
                 .removeHeader("Content-Encoding")
                 .removeHeader("Content-Length")
-                .body(decoded.toResponseBody(body.contentType()))
+                .body(
+                    object : ResponseBody() {
+                        override fun contentType() = mediaType
+                        override fun contentLength() = decoded.size.toLong()
+                        override fun source(): BufferedSource =
+                            decoded.inputStream().source().buffer()
+                    }
+                )
                 .build()
         } catch (_: Exception) {
             response
