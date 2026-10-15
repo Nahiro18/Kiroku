@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches-ignore:
+      - main
       - l10n_dev_crowdin
       - custom-download-location
     paths-ignore:
