@@ -247,7 +247,7 @@ interface OnAnimeInstallClickListener {
 }
 
 private fun isCompatible(extension: AnimeExtension.Available): Boolean {
-    return extension.libVersion in ExtensionLoader.ANIME_LIB_VERSION_MIN..ExtensionLoader.ANIME_LIB_VERSION_MAX
+    return extension.libVersion in ExtensionLoader.ANIME_LIB_VERSION_MIN.toDouble()..ExtensionLoader.ANIME_LIB_VERSION_MAX.toDouble()
 }
 
 private fun incompatibilityReason(extension: AnimeExtension.Available): String {
