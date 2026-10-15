@@ -97,14 +97,16 @@ abstract class HttpSource : CatalogueSource {
      *
      * @param page the page number to retrieve.
      */
-    protected abstract fun popularMangaRequest(page: Int): Request
+    protected open fun popularMangaRequest(page: Int): Request =
+        throw UnsupportedOperationException("Not implemented")
 
     /**
      * Parses the response from the site and returns a [MangasPage] object.
      *
      * @param response the response from the site.
      */
-    protected abstract fun popularMangaParse(response: Response): MangasPage
+    protected open fun popularMangaParse(response: Response): MangasPage =
+        throw UnsupportedOperationException("Not implemented")
 
     /**
      * Returns an observable containing a page with a list of manga. Normally it's not needed to
@@ -140,18 +142,19 @@ abstract class HttpSource : CatalogueSource {
      * @param query the search query.
      * @param filters the list of filters to apply.
      */
-    protected abstract fun searchMangaRequest(
+    protected open fun searchMangaRequest(
         page: Int,
         query: String,
         filters: FilterList
-    ): Request
+    ): Request = throw UnsupportedOperationException("Not implemented")
 
     /**
      * Parses the response from the site and returns a [MangasPage] object.
      *
      * @param response the response from the site.
      */
-    protected abstract fun searchMangaParse(response: Response): MangasPage
+    protected open fun searchMangaParse(response: Response): MangasPage =
+        throw UnsupportedOperationException("Not implemented")
 
     /**
      * Returns an observable containing a page with a list of latest manga updates.
@@ -171,14 +174,16 @@ abstract class HttpSource : CatalogueSource {
      *
      * @param page the page number to retrieve.
      */
-    protected abstract fun latestUpdatesRequest(page: Int): Request
+    protected open fun latestUpdatesRequest(page: Int): Request =
+        throw UnsupportedOperationException("Not implemented")
 
     /**
      * Parses the response from the site and returns a [MangasPage] object.
      *
      * @param response the response from the site.
      */
-    protected abstract fun latestUpdatesParse(response: Response): MangasPage
+    protected open fun latestUpdatesParse(response: Response): MangasPage =
+        throw UnsupportedOperationException("Not implemented")
 
     /**
      * Returns an observable with the updated details for a manga. Normally it's not needed to
@@ -209,7 +214,8 @@ abstract class HttpSource : CatalogueSource {
      *
      * @param response the response from the site.
      */
-    protected abstract fun mangaDetailsParse(response: Response): SManga
+    protected open fun mangaDetailsParse(response: Response): SManga =
+        throw UnsupportedOperationException("Not implemented")
 
     /**
      * Returns an observable with the updated chapter list for a manga. Normally it's not needed to
@@ -244,7 +250,8 @@ abstract class HttpSource : CatalogueSource {
      *
      * @param response the response from the site.
      */
-    protected abstract fun chapterListParse(response: Response): List<SChapter>
+    protected open fun chapterListParse(response: Response): List<SChapter> =
+        throw UnsupportedOperationException("Not implemented")
 
     /**
      * Returns an observable with the page list for a chapter.
@@ -274,7 +281,8 @@ abstract class HttpSource : CatalogueSource {
      *
      * @param response the response from the site.
      */
-    protected abstract fun pageListParse(response: Response): List<Page>
+    protected open fun pageListParse(response: Response): List<Page> =
+        throw UnsupportedOperationException("Not implemented")
 
     /**
      * Returns an observable with the page containing the source url of the image. If there's any
@@ -303,7 +311,8 @@ abstract class HttpSource : CatalogueSource {
      *
      * @param response the response from the site.
      */
-    protected abstract fun imageUrlParse(response: Response): String
+    protected open fun imageUrlParse(response: Response): String =
+        throw UnsupportedOperationException("Not implemented")
 
     /**
      * Returns an observable with the response of the source image.
