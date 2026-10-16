@@ -127,8 +127,8 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
     implementation 'com.google.code.gson:gson:2.11.0'
     implementation 'com.github.Blatzar:NiceHttp:0.4.4'
-    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1'
-    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-protobuf:1.8.1'
+    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0'
+    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-protobuf:1.11.0'
     implementation 'androidx.preference:preference-ktx:1.2.1'
     implementation 'androidx.webkit:webkit:1.12.1'
     implementation "com.anggrayudi:storage:1.5.5"
@@ -215,7 +215,7 @@ dependencies {
     implementation 'com.squareup.okhttp3:okhttp-zstd:5.4.0'
     implementation 'org.jsoup:jsoup:1.17.2'
     implementation 'com.github.CanHub:Android-Image-Cropper:4.3.2'
-    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json-okio:1.8.1'
+    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json-okio:1.11.0'
     implementation 'com.jakewharton.rxrelay:rxrelay:1.2.0'
     implementation 'com.github.tachiyomiorg:unifile:17bec43'
     implementation 'com.github.gpanther:java-nat-sort:natural-comparator-1.1'

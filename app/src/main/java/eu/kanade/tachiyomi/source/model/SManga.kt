@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.source.model
 
 import java.io.Serializable
+import kotlinx.serialization.json.JsonObject
 
 interface SManga : Serializable {
 
@@ -23,6 +24,8 @@ interface SManga : Serializable {
     var update_strategy: UpdateStrategy
 
     var initialized: Boolean
+
+    var memo: JsonObject
 
     fun getGenres(): List<String>? {
         if (genre.isNullOrBlank()) return null
@@ -54,6 +57,8 @@ interface SManga : Serializable {
 
         update_strategy = other.update_strategy
 
+        memo = other.memo
+
         if (!initialized) {
             initialized = other.initialized
         }
@@ -69,6 +74,7 @@ interface SManga : Serializable {
         it.status = status
         it.thumbnail_url = thumbnail_url
         it.update_strategy = update_strategy
+        it.memo = memo
         it.initialized = initialized
     }
 
