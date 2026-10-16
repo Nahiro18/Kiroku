@@ -65,8 +65,10 @@ object AppUpdater {
     }
 
     private suspend fun fetchFromGithub(repo: String, isDebug: Boolean): Pair<String, String> {
+        // Cache-buster: update checks must never serve a stale cached response.
+        val noCache = System.currentTimeMillis()
         return if (isDebug) {
-            val res = client.get("https://api.github.com/repos/$repo/releases")
+            val res = client.get("https://api.github.com/repos/$repo/releases?t=$noCache")
                 .parsed<JsonArray>().map {
                     Mapper.json.decodeFromJsonElement<GithubResponse>(it)
                 }
@@ -77,7 +79,7 @@ object AppUpdater {
             val v = r.tagName.substringAfter("v", "")
             (r.body ?: "") to v.ifEmpty { throw Exception("Weird Version : ${r.tagName}") }
         } else {
-            val res = client.get("https://api.github.com/repos/$repo/releases/latest")
+            val res = client.get("https://api.github.com/repos/$repo/releases/latest?t=$noCache")
                 .parsed<GithubResponse>()
             val v = res.tagName.substringAfter("v", "")
             (res.body ?: "") to v.ifEmpty { throw Exception("Weird Version : ${res.tagName}") }
@@ -94,7 +96,7 @@ object AppUpdater {
     }
 
     private suspend fun fetchApkUrlFromGithub(repo: String, version: String): String? {
-         val apks = client.get("https://api.github.com/repos/$repo/releases/tags/v$version")
+         val apks = client.get("https://api.github.com/repos/$repo/releases/tags/v$version?t=${System.currentTimeMillis()}")
             .parsed<GithubResponse>().assets?.filter {
                 it.browserDownloadURL.endsWith(".apk")
             }
