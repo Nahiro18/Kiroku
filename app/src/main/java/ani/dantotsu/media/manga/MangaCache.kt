@@ -24,7 +24,8 @@ data class ImageData(
 ) {
     suspend fun fetchAndProcessImage(
         page: Page,
-        httpSource: HttpSource
+        httpSource: HttpSource,
+        maxPixels: Long = 0L
     ): Bitmap? {
         return withContext(Dispatchers.IO) {
             try {
@@ -32,14 +33,15 @@ data class ImageData(
                 val response = httpSource.getImage(page)
                 Logger.log("Response: ${response.code} - ${response.message}")
 
-                // Convert the Response to an InputStream
-                val inputStream = response.body.byteStream()
+                // Leer el cuerpo completo permite medir la imagen antes de decodificar
+                val bytes = response.body.bytes()
 
-                // Convert InputStream to Bitmap
-                val bitmap = BitmapFactory.decodeStream(inputStream)
-
-                inputStream.close()
-                //saveImage(bitmap, context.contentResolver, page.imageUrl!!, Bitmap.CompressFormat.JPEG, 100)
+                // Convertir bytes a Bitmap (con muestreo si se pidió un límite)
+                val bitmap = if (maxPixels > 0L) {
+                    KirokuImageDecoder.decode(bytes, maxPixels)
+                } else {
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                }
 
                 return@withContext bitmap
             } catch (e: Exception) {

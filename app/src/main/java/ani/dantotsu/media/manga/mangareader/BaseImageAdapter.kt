@@ -16,6 +16,7 @@ import androidx.recyclerview.widget.RecyclerView
 import ani.dantotsu.FileUrl
 import ani.dantotsu.GesturesListener
 import ani.dantotsu.R
+import ani.dantotsu.media.manga.KirokuImageDecoder
 import ani.dantotsu.media.manga.MangaCache
 import ani.dantotsu.media.manga.MangaChapter
 import ani.dantotsu.px
@@ -186,7 +187,8 @@ abstract class BaseImageAdapter(
                                 mangaCache.get(link.url)?.let { imageData ->
                                     val bitmap = imageData.fetchAndProcessImage(
                                         imageData.page,
-                                        imageData.source
+                                        imageData.source,
+                                        KirokuImageDecoder.DISPLAY_MAX_PIXELS
                                     )
                                     it.load(bitmap)
                                         .skipMemoryCache(false)
