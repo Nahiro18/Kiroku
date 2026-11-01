@@ -1158,4 +1158,8 @@ Non quae tempore quo provident laudantium qui illo dolor vel quia dolor et exerc
     <string name="restart_required_msg">The selected delegate requires an app restart to take effect.</string>
     <string name="restart_now">Restart Now</string>
     <string name="later">Later</string>
+    <string name="yolo_not_compatible">Device not compatible (requires Android 9+)</string>
+    <string name="yolo_downloaded">Model downloaded</string>
+    <string name="yolo_downloading">Downloading... %1$.0f%%</string>
+    <string name="yolo_download_failed">Download failed</string>
 </resources>

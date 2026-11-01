@@ -105,6 +105,21 @@ object YoloModelManager {
         }
     }
 
+    private data class ModelInfo(
+        val fileName: String,
+        val url: String,
+        val sizeMB: Double,
+        val prefKey: String
+    )
+
+    private fun getModelInfo(model: Model): ModelInfo {
+        return if (model == Model.V11) {
+            ModelInfo(V11_MODEL_NAME, V11_URL, V11_SIZE_MB, PREF_V11_PATH)
+        } else {
+            ModelInfo(V8_MODEL_NAME, V8_URL, V8_SIZE_MB, PREF_V8_PATH)
+        }
+    }
+
     suspend fun downloadModel(model: Model, onProgress: ((Double) -> Unit)? = null): Boolean {
         return withContext(Dispatchers.IO) {
             val acquired = lock.tryLock()
@@ -117,16 +132,12 @@ object YoloModelManager {
                 val context = currContext() ?: return@withContext false
 
                 return@withContext try {
+                    val info = getModelInfo(model)
                     val targetDir = File(context.filesDir, "models")
                     if (!targetDir.exists()) targetDir.mkdirs()
 
-                    val (fileName, url, sizeMB) = if (model == Model.V11) {
-                        V11_MODEL_NAME to V11_URL to V11_SIZE_MB
-                    } else {
-                        V8_MODEL_NAME to V8_URL to V8_SIZE_MB
-                    }
-                    val targetFile = File(targetDir, fileName)
-                    val connection = URL(url).openConnection()
+                    val targetFile = File(targetDir, info.fileName)
+                    val connection = URL(info.url).openConnection()
                     connection.connectTimeout = 30000
                     connection.readTimeout = 120000
                     val contentLength = connection.contentLength.toLong()
@@ -147,8 +158,7 @@ object YoloModelManager {
                     }
 
                     if (targetFile.exists() && targetFile.length() > 0) {
-                        val pref = if (model == Model.V11) PREF_V11_PATH else PREF_V8_PATH
-                        PrefManager.setCustomVal(pref, targetFile.absolutePath)
+                        PrefManager.setCustomVal(info.prefKey, targetFile.absolutePath)
                         Logger.log("YOLO ${model.name} downloaded: ${targetFile.length()} bytes")
                         true
                     } else {

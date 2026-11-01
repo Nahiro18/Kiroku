@@ -99,6 +99,7 @@ class ImageSearchActivity : AppCompatActivity() {
 
             val fallbackChain = YoloSegmenter.getFallbackChain(this@ImageSearchActivity, selectedModel, selectedDelegate)
 
+            var success = false
             for ((model, delegate) in fallbackChain) {
                 val modelPath = YoloModelManager.getModelPath(model)
                 if (modelPath == null) continue
@@ -120,13 +121,16 @@ class ImageSearchActivity : AppCompatActivity() {
                     }
                     yoloSegmenter = segmenter
                     drawSegmentationOverlay(bitmap, results)
-                    return@launch
+                    success = true
                 }
+                if (success) return@launch
             }
 
             withContext(Dispatchers.Main) {
-                toast("All YOLO models failed, using original image")
-                binding.imagePreview.setImageBitmap(originalBitmap)
+                if (!success) {
+                    toast("All YOLO models failed, using original image")
+                    binding.imagePreview.setImageBitmap(originalBitmap)
+                }
             }
         }
     }

@@ -63,7 +63,8 @@ class SettingsAddonActivity : AppCompatActivity() {
 
             addonSettingsBack.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
 
-            settingsRecyclerView.adapter = SettingsAdapter(
+            val recyclerView = settingsRecyclerView
+            recyclerView.adapter = SettingsAdapter(
                 arrayListOf(
                     Settings(
                         type = 1,
@@ -219,14 +220,14 @@ class SettingsAddonActivity : AppCompatActivity() {
                         icon = R.drawable.ic_round_auto_awesome_24,
                         isActivity = false,
                         attach = { itemView ->
-                            setupYoloModelItem(itemView)
+                            setupYoloModelItem(itemView, YoloModelManager.Model.V11)
                             itemView.settingsIconRight.setOnClickListener {
                                 val isDownloaded = YoloModelManager.isModelDownloaded(YoloModelManager.Model.V11)
                                 val isCompatible = YoloModelManager.isCompatible()
                                 if (!isCompatible) return@setOnClickListener
                                 if (isDownloaded) {
                                     YoloModelManager.deleteModel(YoloModelManager.Model.V11)
-                                    setupYoloModelItem(itemView)
+                                    (settingsRecyclerView.adapter as? SettingsAdapter)?.notifyDataSetChanged()
                                 } else {
                                     downloadYoloModel(itemView, YoloModelManager.Model.V11)
                                 }
@@ -247,7 +248,7 @@ class SettingsAddonActivity : AppCompatActivity() {
                                 if (!isCompatible) return@setOnClickListener
                                 if (isDownloaded) {
                                     YoloModelManager.deleteModel(YoloModelManager.Model.V8)
-                                    setupYoloModelItem(itemView, YoloModelManager.Model.V8)
+                                    (settingsRecyclerView.adapter as? SettingsAdapter)?.notifyDataSetChanged()
                                 } else {
                                     downloadYoloModel(itemView, YoloModelManager.Model.V8)
                                 }
@@ -258,7 +259,7 @@ class SettingsAddonActivity : AppCompatActivity() {
                         type = 1,
                         name = getString(R.string.yolo_selected_model),
                         desc = getString(R.string.yolo_selected_model_desc),
-                        icon = R.drawable.ic_round_swap_horiz_24,
+                        icon = R.drawable.swap_horizontal_circle_24,
                         isActivity = false,
                         attach = { itemView ->
                             setupYoloModelSpinner(itemView)
@@ -268,7 +269,7 @@ class SettingsAddonActivity : AppCompatActivity() {
                         type = 1,
                         name = getString(R.string.yolo_delegate),
                         desc = getString(R.string.yolo_delegate_desc),
-                        icon = R.drawable.ic_round_memory_24,
+                        icon = R.drawable.ic_round_smart_button_24,
                         isActivity = false,
                         attach = { itemView ->
                             setupYoloDelegateSpinner(itemView)
@@ -276,7 +277,7 @@ class SettingsAddonActivity : AppCompatActivity() {
                     )
                 )
             )
-            settingsRecyclerView.layoutManager =
+            recyclerView.layoutManager =
                 LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false)
 
         }
@@ -293,7 +294,7 @@ class SettingsAddonActivity : AppCompatActivity() {
         downloadAddonManager.removeListenerAction()
     }
 
-    private fun setupYoloModelItem(itemView: ItemSettingsBinding, model: YoloModelManager.Model = YoloModelManager.Model.V11) {
+    private fun setupYoloModelItem(itemView: ItemSettingsBinding, model: YoloModelManager.Model) {
         val isDownloaded = YoloModelManager.isModelDownloaded(model)
         val isCompatible = YoloModelManager.isCompatible()
         val sizeMB = YoloModelManager.getModelSizeMB(model)
@@ -312,8 +313,7 @@ class SettingsAddonActivity : AppCompatActivity() {
             } else if (isDownloaded) {
                 setImageResource(R.drawable.ic_round_delete_24)
                 setOnClickListener {
-                    val modelToDelete = if (model == YoloModelManager.Model.V11) YoloModelManager.Model.V11 else YoloModelManager.Model.V8
-                    YoloModelManager.deleteModel(modelToDelete)
+                    YoloModelManager.deleteModel(model)
                     (settingsRecyclerView.adapter as? SettingsAdapter)?.notifyDataSetChanged()
                 }
             } else {
