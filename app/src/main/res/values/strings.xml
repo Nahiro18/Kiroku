@@ -1134,4 +1134,12 @@ Non quae tempore quo provident laudantium qui illo dolor vel quia dolor et exerc
     <string name="storage_cleared">Space freed</string>
     <string name="progress_queued">Progress %1$d saved, it will sync when the connection returns</string>
     <string name="progress_synced">%1$d pending updates synced</string>
+    <string name="online_subtitles_enabled">Online Subtitles</string>
+    <string name="online_subtitles_enabled_desc">Search and load subtitles from online providers</string>
+    <string name="online_subtitle_providers">Subtitle Providers</string>
+    <string name="online_subtitle_providers_desc">Select which providers to use for online subtitles</string>
+    <string name="online_subtitle_languages">Subtitle Languages</string>
+    <string name="online_subtitle_languages_desc">Preferred subtitle languages</string>
+    <string name="pref_wyzie_api_key">Wyzie API Key</string>
+    <string name="pref_subsource_api_key">SubSource API Key</string>
 </resources>

@@ -27,6 +27,7 @@ import ani.dantotsu.statusBarHeight
 import ani.dantotsu.themes.ThemeManager
 import ani.dantotsu.toast
 import ani.dantotsu.util.customAlertDialog
+import com.google.android.material.chip.Chip
 import com.google.android.material.slider.Slider.OnChangeListener
 import eltos.simpledialogfragment.SimpleDialog
 import eltos.simpledialogfragment.color.SimpleColorWheelDialog
@@ -294,6 +295,52 @@ class PlayerSettingsActivity :
             PrefManager.getVal(PrefName.UseAdditionalCodec)
         binding.playerSettingsAdditionalCodec.setOnCheckedChangeListener { _, isChecked ->
             PrefManager.setVal(PrefName.UseAdditionalCodec, isChecked)
+        }
+
+        binding.playerSettingsOnlineSubtitles.isChecked =
+            PrefManager.getVal(PrefName.OnlineSubtitlesEnabled)
+        binding.playerSettingsOnlineSubtitles.setOnCheckedChangeListener { _, isChecked ->
+            PrefManager.setVal(PrefName.OnlineSubtitlesEnabled, isChecked)
+            binding.playerSettingsOnlineSubtitleProvidersCard.isEnabled = isChecked
+            binding.playerSettingsOnlineSubtitleLanguagesCard.isEnabled = isChecked
+            binding.playerSettingsOnlineSubtitleProvidersCard.alpha = if (isChecked) 1f else 0.5f
+            binding.playerSettingsOnlineSubtitleLanguagesCard.alpha = if (isChecked) 1f else 0.5f
+        }
+        val providersEnabled = PrefManager.getVal(PrefName.OnlineSubtitlesEnabled)
+        binding.playerSettingsOnlineSubtitleProvidersCard.isEnabled = providersEnabled
+        binding.playerSettingsOnlineSubtitleLanguagesCard.isEnabled = providersEnabled
+        binding.playerSettingsOnlineSubtitleProvidersCard.alpha = if (providersEnabled) 1f else 0.5f
+        binding.playerSettingsOnlineSubtitleLanguagesCard.alpha = if (providersEnabled) 1f else 0.5f
+
+        val allProviders = arrayOf("Wyzie", "Stremio", "SubSource", "OpenSubtitles")
+        val allProviderLabels = arrayOf("Wyzie", "Stremio OpenSubtitles", "SubSource", "OpenSubtitles REST")
+        val selectedProviders = PrefManager.getVal<Set<String>>(PrefName.OnlineSubtitleProviders).toMutableSet()
+        allProviders.forEachIndexed { index, provider ->
+            val chip = com.google.android.material.chip.Chip(this).apply {
+                text = allProviderLabels[index]
+                isCheckable = true
+                isChecked = selectedProviders.contains(provider)
+                setOnCheckedChangeListener { _, isChecked ->
+                    if (isChecked) selectedProviders.add(provider) else selectedProviders.remove(provider)
+                    PrefManager.setVal(PrefName.OnlineSubtitleProviders, selectedProviders)
+                }
+            }
+            binding.playerSettingsOnlineSubtitleProviders.addView(chip)
+        }
+
+        val allLanguages = arrayOf("en", "es", "fr", "de", "pt", "it", "ru", "ja", "zh", "ko", "ar", "tr", "pl", "nl", "sv", "he", "hi", "id", "uk", "ro")
+        val selectedLanguages = PrefManager.getVal<Set<String>>(PrefName.OnlineSubtitleLanguages).toMutableSet()
+        allLanguages.forEach { lang ->
+            val chip = com.google.android.material.chip.Chip(this).apply {
+                text = lang.uppercase()
+                isCheckable = true
+                isChecked = selectedLanguages.contains(lang)
+                setOnCheckedChangeListener { _, isChecked ->
+                    if (isChecked) selectedLanguages.add(lang) else selectedLanguages.remove(lang)
+                    PrefManager.setVal(PrefName.OnlineSubtitleLanguages, selectedLanguages)
+                }
+            }
+            binding.playerSettingsOnlineSubtitleLanguages.addView(chip)
         }
 
         val resizeModes = arrayOf("Original", "Zoom", "Stretch")

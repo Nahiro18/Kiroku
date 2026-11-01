@@ -139,6 +139,11 @@ enum class PrefName(val data: Pref) {
     RotationPlayer(Pref(Location.Player, Boolean::class, true)),
     TorrentEnabled(Pref(Location.Player, Boolean::class, false)),
     UseAdditionalCodec(Pref(Location.Player, Boolean::class, false)),
+    OnlineSubtitlesEnabled(Pref(Location.Player, Boolean::class, false)),
+    OnlineSubtitleProviders(
+        Pref(Location.Player, Set::class, setOf("Wyzie", "Stremio", "SubSource", "OpenSubtitles"))
+    ),
+    OnlineSubtitleLanguages(Pref(Location.Player, Set::class, setOf("en", "es", "fr", "de", "pt", "it", "ru", "ja", "zh", "ko"))),
 
     //Reader
     ShowSource(Pref(Location.Reader, Boolean::class, true)),
