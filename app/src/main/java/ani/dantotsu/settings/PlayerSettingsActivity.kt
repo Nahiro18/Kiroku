@@ -306,7 +306,7 @@ class PlayerSettingsActivity :
             binding.playerSettingsOnlineSubtitleProvidersCard.alpha = if (isChecked) 1f else 0.5f
             binding.playerSettingsOnlineSubtitleLanguagesCard.alpha = if (isChecked) 1f else 0.5f
         }
-        val providersEnabled = PrefManager.getVal(PrefName.OnlineSubtitlesEnabled)
+        val providersEnabled = PrefManager.getVal<Boolean>(PrefName.OnlineSubtitlesEnabled)
         binding.playerSettingsOnlineSubtitleProvidersCard.isEnabled = providersEnabled
         binding.playerSettingsOnlineSubtitleLanguagesCard.isEnabled = providersEnabled
         binding.playerSettingsOnlineSubtitleProvidersCard.alpha = if (providersEnabled) 1f else 0.5f
