@@ -1144,7 +1144,6 @@ Non quae tempore quo provident laudantium qui illo dolor vel quia dolor et exerc
     <string name="auto_scroll_speed">Auto Scroll Speed</string>
     <string name="use_yolo_segmentation">Use AI Segmentation (YOLOv8n-seg)</string>
     <string name="search_again">Search Again</string>
-    <string name="search">Search</string>
     <string name="yolo_model_title">YOLOv11n-seg Model</string>
     <string name="yolo_model_desc">Download the AI model for image segmentation during anime search by image. Size: ~3.2 MB</string>
     <string name="yolo_model_v8_title">YOLOv8n-seg Model</string>
