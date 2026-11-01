@@ -185,7 +185,7 @@ object YoloModelManager {
                 connection.readTimeout = 180000
                 connection.requestMethod = "GET"
                 connection.addRequestProperty("User-Agent", "Kiroku/1.0")
-                connection.followRedirects = false
+                connection.setFollowRedirects(false)
 
                 val responseCode = connection.responseCode
                 if (responseCode == 200) {
@@ -226,7 +226,7 @@ object YoloModelManager {
                 connection?.disconnect()
             }
         }
-        false
+        return false
     }
 
     fun isDownloadingNow(): Boolean = isDownloading.get()
