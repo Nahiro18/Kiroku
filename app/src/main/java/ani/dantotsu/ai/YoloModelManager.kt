@@ -141,25 +141,22 @@ object YoloModelManager {
                     var success = false
                     var lastError: String? = null
 
-                    // Retry up to 3 times
                     for (attempt in 1..3) {
                         try {
-                            success = downloadFile(info.url, targetFile, info.sizeMB, onProgress)
+                            val success = downloadFile(info.url, targetFile, info.sizeMB, onProgress)
                             if (success) break
                         } catch (e: Exception) {
-                            lastError = e.message
                             Logger.log("YOLO ${model.name} download attempt $attempt failed: ${e.message}")
                             if (attempt < 3) Thread.sleep(2000)
                         }
                     }
 
-                    if (success) {
+                    if (targetFile.exists() && targetFile.length() > 0) {
                         PrefManager.setCustomVal(getModelInfo(model).prefKey, targetFile.absolutePath)
                         Logger.log("YOLO ${model.name} downloaded: ${targetFile.length()} bytes")
                         true
                     } else {
                         targetFile.delete()
-                        Logger.log("YOLO ${model.name} download failed after retries: $lastError")
                         false
                     }
                 } catch (e: Exception) {
@@ -177,50 +174,58 @@ object YoloModelManager {
     private fun downloadFile(url: String, targetFile: File, expectedSizeMB: Double, onProgress: ((Double) -> Unit)?): Boolean {
         var connection: java.net.HttpURLConnection? = null
         try {
-            val urlObj = URL(url)
-            connection = urlObj.openConnection() as java.net.HttpURLConnection
-            connection.instance.followRedirects = true
-            connection.connectTimeout = 30000
-            connection.readTimeout = 180000
-            connection.requestMethod = "GET"
-            connection.addRequestProperty("User-Agent", "Kiroku/1.0")
+            var currentUrl = url
+            var redirectCount = 0
+            var finalTargetFile = targetFile
 
-            val responseCode = connection.responseCode
-            if (responseCode != 200) {
-                if (responseCode == 301 || responseCode == 302) {
-                    val redirectUrl = connection.getHeaderField("Location")
-                    if (redirectUrl != null) {
-                        return downloadFile(redirectUrl, targetFile, expectedSizeMB, onProgress)
-                    }
-                }
-                Logger.log("Download failed with response code: $responseCode")
-                return false
-            }
+            while (redirectCount < 5) {
+                val urlObj = URL(currentUrl)
+                val connection = urlObj.openConnection() as java.net.HttpURLConnection
+                connection.connectTimeout = 30000
+                connection.readTimeout = 180000
+                connection.requestMethod = "GET"
+                connection.addRequestProperty("User-Agent", "Kiroku/1.0")
+                connection.instance.followRedirects = false
 
-            val contentLength = connection.contentLengthLong
-            if (contentLength <= 0) return false
+                val responseCode = connection.responseCode
+                if (responseCode == 200) {
+                    val contentLength = connection.contentLengthLong
+                    if (contentLength <= 0) return false
 
-            connection.inputStream.use { input ->
-                FileOutputStream(targetFile).use { output ->
-                    val buffer = ByteArray(16384)
-                    var total = 0L
-                    var len: Int
-                    while (input.read(buffer).also { len = it } != -1) {
-                        output.write(buffer, 0, len)
-                        total += len
-                        if (contentLength > 0) {
-                            onProgress?.invoke((total.toDouble() / contentLength) * 100)
+                    connection.inputStream.use { input ->
+                        FileOutputStream(targetFile).use { output ->
+                            val buffer = ByteArray(16384)
+                            var total = 0L
+                            var len: Int
+                            while (input.read(buffer).also { len = it } != -1) {
+                                output.write(buffer, 0, len)
+                                total += len
+                                if (contentLength > 0) {
+                                    onProgress?.invoke((total.toDouble() / connection.contentLengthLong) * 100)
+                                }
+                            }
+                        }
+
+                        return targetFile.exists() && targetFile.length() > 0
+                    } else if (responseCode == 301 || responseCode == 302 || responseCode == 303 || responseCode == 307 || responseCode == 308) {
+                        val redirectUrl = connection.getHeaderField("Location")
+                        if (redirectUrl != null && redirectCount < 5) {
+                            currentUrl = redirectUrl
+                            redirectCount++
+                            connection.disconnect()
+                            continue
                         }
                     }
+                    Logger.log("Download failed with response code: ${connection.responseCode}")
+                    return false
+                } catch (e: Exception) {
+                    Logger.log("Download error: ${e.message}")
+                    return false
+                } finally {
+                    connection?.disconnect()
                 }
-
-                return targetFile.exists() && targetFile.length() > 0
-            } catch (e: Exception) {
-                Logger.log("Download error: ${e.message}")
-                return false
-            } finally {
-                connection?.disconnect()
             }
+            false
         }
 
     fun isDownloadingNow(): Boolean = isDownloading.get()

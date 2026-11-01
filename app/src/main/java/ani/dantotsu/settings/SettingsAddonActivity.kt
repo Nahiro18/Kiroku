@@ -7,6 +7,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.animation.LinearInterpolator
 import android.widget.ArrayAdapter
+import android.widget.Button
+import android.widget.LinearLayout
 import android.widget.Spinner
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AlertDialog
@@ -273,7 +275,7 @@ class SettingsAddonActivity : AppCompatActivity() {
             getString(R.string.yolo_not_compatible)
         } else if (bothDownloaded) {
             getString(R.string.yolo_both_downloaded)
-        } else if (anyDownloaded) {
+        } else if (v11Downloaded || v8Downloaded) {
             getString(R.string.yolo_one_downloaded)
         } else {
             getString(R.string.yolo_ai_models_desc)
@@ -340,6 +342,7 @@ class SettingsAddonActivity : AppCompatActivity() {
     }
 
     private fun setupYoloModelSpinner(itemView: ItemSettingsBinding) {
+        clearAttachView(itemView)
         val currentModel = YoloModelManager.getSelectedModel()
         val spinner = Spinner(this).apply {
             adapter = ArrayAdapter(this@SettingsAddonActivity, android.R.layout.simple_spinner_dropdown_item, arrayOf("YOLOv11n-seg (newer)", "YOLOv8n-seg (older)"))
@@ -360,6 +363,7 @@ class SettingsAddonActivity : AppCompatActivity() {
     }
 
     private fun setupYoloDelegateSpinner(itemView: ItemSettingsBinding) {
+        clearAttachView(itemView)
         val currentDelegate = YoloModelManager.getSelectedDelegate()
         val spinner = Spinner(this).apply {
             adapter = ArrayAdapter(this@SettingsAddonActivity, android.R.layout.simple_spinner_dropdown_item, arrayOf("GPU (recommended)", "CPU (fallback)"))
@@ -377,6 +381,10 @@ class SettingsAddonActivity : AppCompatActivity() {
         }
         itemView.attachView.addView(spinner)
         itemView.settingsIconRight.visibility = View.GONE
+    }
+
+    private fun clearAttachView(itemView: ItemSettingsBinding) {
+        itemView.attachView.removeAllViews()
     }
 
     private fun showRestartDialog() {

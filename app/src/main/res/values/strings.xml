@@ -1168,4 +1168,6 @@ Non quae tempore quo provident laudantium qui illo dolor vel quia dolor et exerc
     <string name="yolo_one_downloaded">One model downloaded</string>
     <string name="yolo_downloading_v11">Downloading YOLOv11... %1$.0f%%</string>
     <string name="yolo_downloading_v8">Downloading YOLOv8... %1$.0f%%</string>
+    <string name="restart_app">Restart App</string>
+    <string name="changes_require_restart">Changes require app restart to take effect</string>
 </resources>
