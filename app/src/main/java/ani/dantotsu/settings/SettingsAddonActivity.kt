@@ -8,6 +8,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import ani.dantotsu.R
 import ani.dantotsu.ai.YoloModelManager
 import ani.dantotsu.addons.AddonDownloader
@@ -231,7 +232,7 @@ class SettingsAddonActivity : AppCompatActivity() {
                                     setImageResource(R.drawable.ic_round_delete_24)
                                     setOnClickListener {
                                         YoloModelManager.deleteModel()
-                                        notifyItemChanged(binding.settingsRecyclerView.getChildAdapterPosition(itemView.root))
+                                        (settingsRecyclerView.adapter as? SettingsAdapter)?.notifyItemChanged(settingsRecyclerView.getChildAdapterPosition(itemView.root))
                                     }
                                 } else {
                                     setImageResource(R.drawable.ic_download_24)
@@ -275,7 +276,7 @@ class SettingsAddonActivity : AppCompatActivity() {
             }
         }
 
-        lifecycleScope.launchIO {
+        lifecycleScope.launch {
             val success = YoloModelManager.downloadModel { progress ->
                 withContext(Dispatchers.Main) {
                     if (isActive) {

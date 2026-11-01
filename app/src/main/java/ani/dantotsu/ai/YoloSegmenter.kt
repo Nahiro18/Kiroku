@@ -1,6 +1,5 @@
 package ani.dantotsu.ai
 
-import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -8,20 +7,9 @@ import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.RectF
 import android.util.Log
-import androidx.camera.core.ImageProxy
 import org.tensorflow.lite.DataType
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.gpu.GpuDelegate
-import org.tensorflow.lite.support.common.TensorProcessor
-import org.tensorflow.lite.support.common.ops.NormalizeOp
-import org.tensorflow.lite.support.image.ImageProcessor
-import org.tensorflow.lite.support.image.TensorImage
-import org.tensorflow.lite.support.image.ops.ResizeOp
-import org.tensorflow.lite.support.image.ops.ResizeWithCropOrPadOp
-import org.tensorflow.lite.support.image.ops.Rot90Op
-import org.tensorflow.lite.task.vision.segmenter.Segmentation
-import org.tensorflow.lite.task.vision.segmenter.Segmenter
-import org.tensorflow.lite.task.vision.segmenter.SegmenterOptions
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -31,13 +19,10 @@ class YoloSegmenter private constructor(
     private val inputSize: Int
 ) {
 
-    private val inputShape = intArrayOf(1, inputSize, inputSize, 3)
-    private val outputShape = intArrayOf(1, 32, 160, 160)
-
     companion object {
         private var instance: YoloSegmenter? = null
 
-        fun getInstance(context: Context, modelFile: File): YoloSegmenter? {
+        fun getInstance(context: android.content.Context, modelFile: File): YoloSegmenter? {
             if (instance != null) return instance
             return try {
                 val gpuDelegate = GpuDelegate()
@@ -76,19 +61,20 @@ class YoloSegmenter private constructor(
             inputBuffer.putFloat((pixel and 0xFF) / 255.0f)
         }
 
-        val outputBuffer = ByteBuffer.allocateDirect(4 * 32 * 160 * 160)
+        val outputShape = interpreter.getOutputTensor(0).shape
+        val outputBuffer = ByteBuffer.allocateDirect(4 * outputShape[1] * outputShape[2] * outputShape[3])
             .order(ByteOrder.nativeOrder())
 
         interpreter.run(inputBuffer, outputBuffer)
 
-        return parseOutput(outputBuffer, bitmap.width, bitmap.height)
+        return parseOutput(outputBuffer, bitmap.width, bitmap.height, outputShape)
     }
 
-    private fun parseOutput(outputBuffer: ByteBuffer, originalWidth: Int, originalHeight: Int): List<SegmentationResult> {
+    private fun parseOutput(outputBuffer: ByteBuffer, originalWidth: Int, originalHeight: Int, outputShape: IntArray): List<SegmentationResult> {
         val results = mutableListOf<SegmentationResult>()
-        val channels = 32
-        val height = 160
-        val width = 160
+        val channels = outputShape[3]
+        val height = outputShape[1]
+        val width = outputShape[2]
 
         val outputArray = FloatArray(channels * height * width)
         outputBuffer.rewind()
