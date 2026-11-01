@@ -11,6 +11,7 @@ import kotlinx.coroutines.sync.Mutex
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
+import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -137,32 +138,28 @@ object YoloModelManager {
                     if (!targetDir.exists()) targetDir.mkdirs()
 
                     val targetFile = File(targetDir, info.fileName)
-                    val connection = URL(info.url).openConnection()
-                    connection.connectTimeout = 30000
-                    connection.readTimeout = 120000
-                    val contentLength = connection.contentLength.toLong()
+                    var success = false
+                    var lastError: String? = null
 
-                    connection.inputStream.use { input ->
-                        FileOutputStream(targetFile).use { output ->
-                            val buffer = ByteArray(8192)
-                            var total = 0L
-                            var len: Int
-                            while (input.read(buffer).also { len = it } != -1) {
-                                output.write(buffer, 0, len)
-                                total += len
-                                if (contentLength > 0) {
-                                    onProgress?.invoke((total.toDouble() / contentLength) * 100)
-                                }
-                            }
+                    // Retry up to 3 times
+                    for (attempt in 1..3) {
+                        try {
+                            success = downloadFile(info.url, targetFile, info.sizeMB, onProgress)
+                            if (success) break
+                        } catch (e: Exception) {
+                            lastError = e.message
+                            Logger.log("YOLO ${model.name} download attempt $attempt failed: ${e.message}")
+                            if (attempt < 3) Thread.sleep(2000)
                         }
                     }
 
-                    if (targetFile.exists() && targetFile.length() > 0) {
-                        PrefManager.setCustomVal(info.prefKey, targetFile.absolutePath)
+                    if (success) {
+                        PrefManager.setCustomVal(getModelInfo(model).prefKey, targetFile.absolutePath)
                         Logger.log("YOLO ${model.name} downloaded: ${targetFile.length()} bytes")
                         true
                     } else {
                         targetFile.delete()
+                        Logger.log("YOLO ${model.name} download failed after retries: $lastError")
                         false
                     }
                 } catch (e: Exception) {
@@ -176,6 +173,55 @@ object YoloModelManager {
             }
         }
     }
+
+    private fun downloadFile(url: String, targetFile: File, expectedSizeMB: Double, onProgress: ((Double) -> Unit)?): Boolean {
+        var connection: java.net.HttpURLConnection? = null
+        try {
+            val urlObj = URL(url)
+            connection = urlObj.openConnection() as java.net.HttpURLConnection
+            connection.instance.followRedirects = true
+            connection.connectTimeout = 30000
+            connection.readTimeout = 180000
+            connection.requestMethod = "GET"
+            connection.addRequestProperty("User-Agent", "Kiroku/1.0")
+
+            val responseCode = connection.responseCode
+            if (responseCode != 200) {
+                if (responseCode == 301 || responseCode == 302) {
+                    val redirectUrl = connection.getHeaderField("Location")
+                    if (redirectUrl != null) {
+                        return downloadFile(redirectUrl, targetFile, expectedSizeMB, onProgress)
+                    }
+                }
+                Logger.log("Download failed with response code: $responseCode")
+                return false
+            }
+
+            val contentLength = connection.contentLengthLong
+            if (contentLength <= 0) return false
+
+            connection.inputStream.use { input ->
+                FileOutputStream(targetFile).use { output ->
+                    val buffer = ByteArray(16384)
+                    var total = 0L
+                    var len: Int
+                    while (input.read(buffer).also { len = it } != -1) {
+                        output.write(buffer, 0, len)
+                        total += len
+                        if (contentLength > 0) {
+                            onProgress?.invoke((total.toDouble() / contentLength) * 100)
+                        }
+                    }
+                }
+
+                return targetFile.exists() && targetFile.length() > 0
+            } catch (e: Exception) {
+                Logger.log("Download error: ${e.message}")
+                return false
+            } finally {
+                connection?.disconnect()
+            }
+        }
 
     fun isDownloadingNow(): Boolean = isDownloading.get()
 }
