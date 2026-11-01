@@ -31,9 +31,10 @@ import ani.dantotsu.settings.saving.PrefName
 import ani.dantotsu.statusBarHeight
 import ani.dantotsu.themes.ThemeManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.util.Timer
-import java.util.TimerTask
+import kotlinx.coroutines.withContext
 
 class SearchActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySearchBinding
@@ -403,7 +404,7 @@ class SearchActivity : AppCompatActivity() {
         progressAdapter.bar?.visibility = View.GONE
     }
 
-    private var searchTimer = Timer()
+    private var searchJob: Job? = null
     private var loading = false
     fun search() {
         headerAdaptor.setHistoryVisibility(false)
@@ -435,19 +436,15 @@ class SearchActivity : AppCompatActivity() {
 
         progressAdapter.bar?.visibility = View.VISIBLE
 
-        searchTimer.cancel()
-        searchTimer.purge()
-        val timerTask: TimerTask = object : TimerTask() {
-            override fun run() {
-                scope.launch(Dispatchers.IO) {
-                    loading = true
-                    model.loadSearch(searchType)
-                    loading = false
-                }
+        searchJob?.cancel()
+        searchJob = scope.launch {
+            delay(500)
+            withContext(Dispatchers.IO) {
+                loading = true
+                model.loadSearch(searchType)
+                loading = false
             }
         }
-        searchTimer = Timer()
-        searchTimer.schedule(timerTask, 500)
     }
 
     @SuppressLint("NotifyDataSetChanged")

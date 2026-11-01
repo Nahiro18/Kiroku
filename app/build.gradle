@@ -28,7 +28,7 @@ android {
 
     defaultConfig {
         applicationId "app.redantotsu.asr"
-        minSdk 23
+        minSdk 26
         targetSdk 36
         versionName "1.1.96"
         versionCode 100001960

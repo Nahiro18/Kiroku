@@ -133,7 +133,12 @@ class MediaDetailsViewModel : ViewModel() {
     fun getEpisodes(): LiveData<MutableMap<Int, MutableMap<String, Episode>>> = episodes
     suspend fun loadEpisodes(media: Media, i: Int, invalidate: Boolean = false): Boolean {
         if (!epsLoaded.containsKey(i) || invalidate) {
-            val loaded = watchSources?.loadEpisodesFromMedia(i, media) ?: return false
+            val loaded = watchSources?.loadEpisodesFromMedia(i, media, invalidate) { cached ->
+                if (cached.isNotEmpty()) {
+                    epsLoaded[i] = cached
+                    episodes.postValue(epsLoaded)
+                }
+            } ?: return false
             if (loaded.isNotEmpty()) {
                 epsLoaded[i] = loaded
                 episodes.postValue(epsLoaded)
@@ -307,7 +312,12 @@ class MediaDetailsViewModel : ViewModel() {
         if (!mangaLoaded.containsKey(i) || invalidate) {
             var ok = false
             tryWithSuspend {
-                val loaded = mangaReadSources?.loadChaptersFromMedia(i, media) ?: return@tryWithSuspend
+                val loaded = mangaReadSources?.loadChaptersFromMedia(i, media, invalidate) { cached ->
+                    if (cached.isNotEmpty()) {
+                        mangaLoaded[i] = cached
+                        mangaChapters.postValue(mangaLoaded)
+                    }
+                } ?: return@tryWithSuspend
                 if (loaded.isNotEmpty()) {
                     mangaLoaded[i] = loaded
                     mangaChapters.postValue(mangaLoaded)

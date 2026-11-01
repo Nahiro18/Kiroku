@@ -171,8 +171,6 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.Calendar
 import java.util.Locale
-import java.util.Timer
-import java.util.TimerTask
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.collections.set
@@ -899,27 +897,17 @@ class ExoplayerView :
             isSeeking = true
 
             if (forward) {
-                seekTimerR.reset(
-                    object : TimerTask() {
-                        override fun run() {
-                            isSeeking = false
-                            stopAnim()
-                            seekTimesF = 0
-                        }
-                    },
-                    850,
-                )
+                seekTimerR.reset(850) {
+                    isSeeking = false
+                    stopAnim()
+                    seekTimesF = 0
+                }
             } else {
-                seekTimerF.reset(
-                    object : TimerTask() {
-                        override fun run() {
-                            isSeeking = false
-                            stopAnim()
-                            seekTimesR = 0
-                        }
-                    },
-                    850,
-                )
+                seekTimerF.reset(850) {
+                    isSeeking = false
+                    stopAnim()
+                    seekTimesR = 0
+                }
             }
         }
 
@@ -955,20 +943,13 @@ class ExoplayerView :
             }
 
             // Brightness
-            var brightnessTimer = Timer()
+            val brightnessHideTimer = ResettableTimer()
             exoBrightnessCont.visibility = View.GONE
 
             fun brightnessHide() {
-                brightnessTimer.cancel()
-                brightnessTimer.purge()
-                val timerTask: TimerTask =
-                    object : TimerTask() {
-                        override fun run() {
-                            handler.post(brightnessRunnable)
-                        }
-                    }
-                brightnessTimer = Timer()
-                brightnessTimer.schedule(timerTask, 3000)
+                brightnessHideTimer.reset(3000) {
+                    handler.post(brightnessRunnable)
+                }
             }
             exoBrightness.value = (getCurrentBrightnessValue(this) * 10f)
 
@@ -981,23 +962,16 @@ class ExoplayerView :
             }
 
             // Volume
-            var volumeTimer = Timer()
+            val volumeHideTimer = ResettableTimer()
             exoVolumeCont.visibility = View.GONE
 
             val volumeMax = audioManager.getStreamMaxVolume(STREAM_MUSIC)
             exoVolume.value = audioManager.getStreamVolume(STREAM_MUSIC).toFloat() / volumeMax * 10
 
             fun volumeHide() {
-                volumeTimer.cancel()
-                volumeTimer.purge()
-                val timerTask: TimerTask =
-                    object : TimerTask() {
-                        override fun run() {
-                            handler.post(volumeRunnable)
-                        }
-                    }
-                volumeTimer = Timer()
-                volumeTimer.schedule(timerTask, 3000)
+                volumeHideTimer.reset(3000) {
+                    handler.post(volumeRunnable)
+                }
             }
             exoVolume.addOnChangeListener { _, value, _ ->
                 val volume = ((value.takeIf { !it.isNaN() } ?: 0f) / 10 * volumeMax).roundToInt()
@@ -1324,23 +1298,13 @@ class ExoplayerView :
         }
 
         if (PrefManager.getVal(PrefName.AutoPlay)) {
-            var touchTimer = Timer()
+            val touchTimer = ResettableTimer()
 
             fun touched() {
                 interacted = true
-                touchTimer.apply {
-                    cancel()
-                    purge()
+                touchTimer.reset(60 * 60 * 1000L) {
+                    interacted = false
                 }
-                touchTimer = Timer()
-                touchTimer.schedule(
-                    object : TimerTask() {
-                        override fun run() {
-                            interacted = false
-                        }
-                    },
-                    1000 * 60 * 60,
-                )
             }
             playerView.findViewById<View>(R.id.exo_touch_view).setOnTouchListener { _, _ ->
                 touched()

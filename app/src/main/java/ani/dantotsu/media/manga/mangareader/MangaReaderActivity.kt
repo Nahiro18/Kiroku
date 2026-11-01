@@ -60,6 +60,7 @@ import ani.dantotsu.media.MediaSingleton
 import ani.dantotsu.media.manga.MangaCache
 import ani.dantotsu.media.manga.MangaChapter
 import ani.dantotsu.others.ImageViewDialog
+import ani.dantotsu.others.ResettableTimer
 import ani.dantotsu.parsers.HMangaSources
 import ani.dantotsu.parsers.MangaImage
 import ani.dantotsu.parsers.MangaSources
@@ -98,8 +99,6 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
-import java.util.Timer
-import java.util.TimerTask
 import kotlin.math.min
 import kotlin.properties.Delegates
 
@@ -223,20 +222,12 @@ class MangaReaderActivity : AppCompatActivity() {
 
         hideSystemBars()
 
-        var pageSliderTimer = Timer()
+        val pageSliderTimer = ResettableTimer()
         fun pageSliderHide() {
-            pageSliderTimer.cancel()
-            pageSliderTimer.purge()
-            val timerTask: TimerTask = object : TimerTask() {
-                override fun run() {
-                    binding.mangaReaderCont.post {
-                        sliding = false
-                        handleController(false)
-                    }
-                }
+            pageSliderTimer.reset(3000) {
+                sliding = false
+                handleController(false)
             }
-            pageSliderTimer = Timer()
-            pageSliderTimer.schedule(timerTask, 3000)
         }
 
         binding.mangaReaderSlider.addOnChangeListener { _, value, fromUser ->
@@ -881,20 +872,14 @@ class MangaReaderActivity : AppCompatActivity() {
 
     private val overshoot = OvershootInterpolator(1.4f)
     private var controllerDuration by Delegates.notNull<Long>()
-    private var goneTimer = Timer()
+    private val goneTimer = ResettableTimer()
     fun gone() {
-        goneTimer.cancel()
-        goneTimer.purge()
-        val timerTask: TimerTask = object : TimerTask() {
-            override fun run() {
-                if (!isContVisible) binding.mangaReaderCont.post {
-                    binding.mangaReaderCont.visibility = View.GONE
-                    isAnimating = false
-                }
+        goneTimer.reset(controllerDuration) {
+            if (!isContVisible) {
+                binding.mangaReaderCont.visibility = View.GONE
+                isAnimating = false
             }
         }
-        goneTimer = Timer()
-        goneTimer.schedule(timerTask, controllerDuration)
     }
 
     enum class PressPos {

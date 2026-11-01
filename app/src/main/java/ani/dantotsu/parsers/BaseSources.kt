@@ -3,6 +3,8 @@ package ani.dantotsu.parsers
 import ani.dantotsu.Lazier
 import ani.dantotsu.media.Media
 import ani.dantotsu.media.anime.Episode
+import ani.dantotsu.media.kiroku.KirokuChapterCache
+import ani.dantotsu.media.kiroku.KirokuEpisodeCache
 import ani.dantotsu.media.manga.MangaChapter
 import ani.dantotsu.tryWithSuspend
 import ani.dantotsu.util.Logger
@@ -20,11 +22,39 @@ abstract class WatchSources : BaseSources() {
         return get(i) is OfflineAnimeParser
     }
 
-    suspend fun loadEpisodesFromMedia(i: Int, media: Media): MutableMap<String, Episode> {
-        return tryWithSuspend(true) {
-            val res = get(i).autoSearch(media) ?: return@tryWithSuspend mutableMapOf()
+    suspend fun loadEpisodesFromMedia(
+        i: Int,
+        media: Media,
+        invalidate: Boolean = false,
+        onCachedLoaded: ((MutableMap<String, Episode>) -> Unit)? = null
+    ): MutableMap<String, Episode> {
+        val parser = get(i)
+        val sourceKey = runCatching { parser.saveName.ifBlank { parser.name } }.getOrDefault("")
+        val canCache = !invalidate && sourceKey.isNotBlank() && parser !is OfflineAnimeParser
+
+        var cached: MutableMap<String, Episode>? = null
+        if (canCache) {
+            runCatching { parser.loadSavedShowResponse(media.id) }.getOrNull()
+                ?.link?.takeIf { it.isNotBlank() }
+                ?.let { link ->
+                    cached = KirokuEpisodeCache.load(sourceKey, link)
+                    if (!cached.isNullOrEmpty()) onCachedLoaded?.invoke(cached!!)
+                }
+        }
+
+        var resolvedLink: String? = null
+        val loaded = tryWithSuspend(true) {
+            val res = parser.autoSearch(media) ?: return@tryWithSuspend (cached ?: mutableMapOf())
+            resolvedLink = res.link
             loadEpisodes(i, res.link, res.extra, res.sAnime)
         } ?: mutableMapOf()
+
+        if (loaded.isEmpty()) return cached ?: loaded
+        if (canCache) {
+            resolvedLink?.takeIf { it.isNotBlank() }
+                ?.let { KirokuEpisodeCache.save(sourceKey, it, loaded) }
+        }
+        return loaded
     }
 
     suspend fun loadEpisodes(
@@ -76,11 +106,39 @@ abstract class MangaReadSources : BaseSources() {
             ?: EmptyMangaParser()
     }
 
-    suspend fun loadChaptersFromMedia(i: Int, media: Media): MutableMap<String, MangaChapter> {
-        return tryWithSuspend(true) {
-            val res = get(i).autoSearch(media) ?: return@tryWithSuspend mutableMapOf()
+    suspend fun loadChaptersFromMedia(
+        i: Int,
+        media: Media,
+        invalidate: Boolean = false,
+        onCachedLoaded: ((MutableMap<String, MangaChapter>) -> Unit)? = null
+    ): MutableMap<String, MangaChapter> {
+        val parser = get(i)
+        val sourceKey = runCatching { parser.saveName.ifBlank { parser.name } }.getOrDefault("")
+        val canCache = !invalidate && sourceKey.isNotBlank() && parser !is OfflineMangaParser
+
+        var cached: MutableMap<String, MangaChapter>? = null
+        if (canCache) {
+            runCatching { parser.loadSavedShowResponse(media.id) }.getOrNull()
+                ?.link?.takeIf { it.isNotBlank() }
+                ?.let { link ->
+                    cached = KirokuChapterCache.load(sourceKey, link)
+                    if (!cached.isNullOrEmpty()) onCachedLoaded?.invoke(cached!!)
+                }
+        }
+
+        var resolvedLink: String? = null
+        val loaded = tryWithSuspend(true) {
+            val res = parser.autoSearch(media) ?: return@tryWithSuspend (cached ?: mutableMapOf())
+            resolvedLink = res.link
             loadChapters(i, res)
         } ?: mutableMapOf()
+
+        if (loaded.isEmpty()) return cached ?: loaded
+        if (canCache) {
+            resolvedLink?.takeIf { it.isNotBlank() }
+                ?.let { KirokuChapterCache.save(sourceKey, it, loaded) }
+        }
+        return loaded
     }
 
     suspend fun loadChapters(i: Int, show: ShowResponse): MutableMap<String, MangaChapter> {

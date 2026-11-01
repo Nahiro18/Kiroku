@@ -35,6 +35,7 @@ import ani.dantotsu.currContext
 import ani.dantotsu.databinding.ActivityNovelReaderBinding
 import ani.dantotsu.hideSystemBars
 import ani.dantotsu.others.ImageViewDialog
+import ani.dantotsu.others.ResettableTimer
 import ani.dantotsu.setSafeOnClickListener
 import ani.dantotsu.settings.CurrentNovelReaderSettings
 import ani.dantotsu.settings.CurrentReaderSettings
@@ -65,8 +66,6 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
-import java.util.Timer
-import java.util.TimerTask
 import kotlin.math.min
 import kotlin.properties.Delegates
 
@@ -423,23 +422,17 @@ class NovelReaderActivity : AppCompatActivity(), EbookReaderEventListener {
     // region Handle Controls
     private var isContVisible = false
     private var isAnimating = false
-    private var goneTimer = Timer()
+    private var goneTimer = ResettableTimer()
     private var controllerDuration by Delegates.notNull<Long>()
     private val overshoot = OvershootInterpolator(1.4f)
 
     fun gone() {
-        goneTimer.cancel()
-        goneTimer.purge()
-        val timerTask: TimerTask = object : TimerTask() {
-            override fun run() {
-                if (!isContVisible) binding.novelReaderCont.post {
-                    binding.novelReaderCont.visibility = View.GONE
-                    isAnimating = false
-                }
+        goneTimer.reset(controllerDuration) {
+            if (!isContVisible) {
+                binding.novelReaderCont.visibility = View.GONE
+                isAnimating = false
             }
         }
-        goneTimer = Timer()
-        goneTimer.schedule(timerTask, controllerDuration)
     }
 
     fun handleController(shouldShow: Boolean? = null) {

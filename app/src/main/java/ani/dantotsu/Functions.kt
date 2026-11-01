@@ -150,8 +150,6 @@ import java.lang.reflect.Field
 import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
-import java.util.Timer
-import java.util.TimerTask
 import kotlin.collections.set
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
@@ -724,7 +722,8 @@ suspend fun getSize(file: String): Double? {
 
 
 abstract class GesturesListener : GestureDetector.SimpleOnGestureListener() {
-    private var timer: Timer? = null //at class level;
+    private val handler = Handler(Looper.getMainLooper())
+    private var pendingSingleClick: Runnable? = null
     private val delay: Long = 200
 
     override fun onSingleTapUp(e: MotionEvent): Boolean {
@@ -754,32 +753,21 @@ abstract class GesturesListener : GestureDetector.SimpleOnGestureListener() {
     }
 
     private fun processSingleClickEvent(e: MotionEvent) {
-        val handler = Handler(Looper.getMainLooper())
-        val mRunnable = Runnable {
-            onSingleClick(e)
-        }
-        timer = Timer().apply {
-            schedule(object : TimerTask() {
-                override fun run() {
-                    handler.post(mRunnable)
-                }
-            }, delay)
-        }
+        pendingSingleClick?.let { handler.removeCallbacks(it) }
+        val runnable = Runnable { onSingleClick(e) }
+        pendingSingleClick = runnable
+        handler.postDelayed(runnable, delay)
     }
 
     private fun processDoubleClickEvent(e: MotionEvent) {
-        timer?.apply {
-            cancel()
-            purge()
-        }
+        pendingSingleClick?.let { handler.removeCallbacks(it) }
+        pendingSingleClick = null
         onDoubleClick(e)
     }
 
     private fun processLongClickEvent(e: MotionEvent) {
-        timer?.apply {
-            cancel()
-            purge()
-        }
+        pendingSingleClick?.let { handler.removeCallbacks(it) }
+        pendingSingleClick = null
         onLongClick(e)
     }
 

@@ -33,8 +33,8 @@ import ani.dantotsu.settings.saving.PrefName
 import ani.dantotsu.startMainActivity
 import ani.dantotsu.util.customAlertDialog
 import eu.kanade.tachiyomi.util.system.getSerializableCompat
-import java.util.Timer
-import kotlin.concurrent.schedule
+import android.os.Handler
+import android.os.Looper
 import android.view.WindowManager
 import android.os.Build
 import android.graphics.drawable.GradientDrawable
@@ -157,7 +157,7 @@ class SettingsDialogFragment : BottomSheetDialogFragment() {
         }
         binding.settingsDownloads.isChecked = PrefManager.getVal(PrefName.OfflineMode)
         binding.settingsDownloads.setOnCheckedChangeListener { _, isChecked ->
-            Timer().schedule(300) {
+            Handler(Looper.getMainLooper()).postDelayed({
                 when (pageType) {
                     PageType.MANGA -> {
                         val intent = Intent(activity, NoInternet::class.java)
@@ -207,7 +207,7 @@ class SettingsDialogFragment : BottomSheetDialogFragment() {
 
                 dismiss()
                 PrefManager.setVal(PrefName.OfflineMode, isChecked)
-            }
+            }, 300)
         }
     }
 

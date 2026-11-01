@@ -1,28 +1,34 @@
 package ani.dantotsu.others
 
-import java.util.Timer
-import java.util.TimerTask
-import java.util.concurrent.atomic.AtomicBoolean
+import android.os.Handler
+import android.os.Looper
 
+/**
+ * Ejecuta una acción después de un retraso, reiniciando la cuenta si se vuelve
+ * a pedir antes de que termine.
+ *
+ * Usa el Handler del hilo principal en vez de crear un `Timer` (y su hilo)
+ * por cada gesto. Con gestos rápidos eso generaba cientos de hilos.
+ */
 class ResettableTimer {
-    var resetLock = AtomicBoolean(false)
-    var timer = Timer()
-    fun reset(timerTask: TimerTask, delay: Long) {
-        if (!resetLock.getAndSet(true)) {
-            timer.cancel()
-            timer.purge()
-            timer = Timer()
-            timer.schedule(object : TimerTask() {
-                override fun run() {
-                    if (!resetLock.getAndSet(true)) {
-                        timerTask.run()
-                        timer.cancel()
-                        timer.purge()
-                        resetLock.set(false)
-                    }
-                }
-            }, delay)
-            resetLock.set(false)
-        }
+
+    private val handler = Handler(Looper.getMainLooper())
+    private var pending: (() -> Unit)? = null
+
+    private val runnable = Runnable {
+        val action = pending
+        pending = null
+        action?.invoke()
+    }
+
+    fun reset(delay: Long, action: () -> Unit) {
+        cancel()
+        pending = action
+        handler.postDelayed(runnable, delay)
+    }
+
+    fun cancel() {
+        handler.removeCallbacks(runnable)
+        pending = null
     }
 }

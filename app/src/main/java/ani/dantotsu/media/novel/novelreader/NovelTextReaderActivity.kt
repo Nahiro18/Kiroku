@@ -35,8 +35,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import java.util.Timer
-import java.util.TimerTask
+import ani.dantotsu.others.ResettableTimer
 import kotlin.math.min
 import kotlin.properties.Delegates
 
@@ -201,23 +200,17 @@ class NovelTextReaderActivity : AppCompatActivity() {
     // Controls
     private var isContVisible = false
     private var isAnimating = false
-    private var goneTimer = Timer()
+    private var goneTimer = ResettableTimer()
     private var controllerDuration by Delegates.notNull<Long>()
     private val overshoot = OvershootInterpolator(1.4f)
 
     fun gone() {
-        goneTimer.cancel()
-        goneTimer.purge()
-        val timerTask = object : TimerTask() {
-            override fun run() {
-                if (!isContVisible) binding.novelReaderCont.post {
-                    binding.novelReaderCont.visibility = View.GONE
-                    isAnimating = false
-                }
+        goneTimer.reset(controllerDuration) {
+            if (!isContVisible) {
+                binding.novelReaderCont.visibility = View.GONE
+                isAnimating = false
             }
         }
-        goneTimer = Timer()
-        goneTimer.schedule(timerTask, controllerDuration)
     }
 
     fun handleController(shouldShow: Boolean? = null) {
