@@ -238,7 +238,7 @@ class SettingsAddonActivity : AppCompatActivity() {
                                 } else {
                                     setImageResource(R.drawable.ic_download_24)
                                     setOnClickListener {
-                                        lifecycleScope.launch { downloadYoloModel(itemView) }
+                                        downloadYoloModel(itemView)
                                     }
                                 }
                             }
@@ -258,7 +258,7 @@ class SettingsAddonActivity : AppCompatActivity() {
         downloadAddonManager.removeListenerAction()
     }
 
-    private suspend fun downloadYoloModel(itemView: ItemSettingsBinding) {
+    private fun downloadYoloModel(itemView: ItemSettingsBinding) {
         if (YoloModelManager.isDownloadingNow()) return
 
         val job = Job()
@@ -275,14 +275,12 @@ class SettingsAddonActivity : AppCompatActivity() {
             }
         }
 
-        val success = YoloModelManager.downloadModel { progress ->
-            withContext(Dispatchers.Main) {
+        CoroutineScope(Dispatchers.Main).launch {
+            val success = YoloModelManager.downloadModel { progress ->
                 if (isActive) {
                     itemView.settingsDesc.text = getString(R.string.yolo_downloading, progress)
                 }
             }
-        }
-        withContext(Dispatchers.Main) {
             job.cancel()
             itemView.settingsIconRight.animate().cancel()
             itemView.settingsIconRight.rotation = 0f
