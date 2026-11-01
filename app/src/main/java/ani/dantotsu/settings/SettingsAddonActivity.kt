@@ -44,6 +44,7 @@ import uy.kohesive.injekt.api.get
 
 class SettingsAddonActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySettingsAddonsBinding
+    private lateinit var settingsRecyclerView: RecyclerView
     private val downloadAddonManager: DownloadAddonManager = Injekt.get()
     private val torrentAddonManager: TorrentAddonManager = Injekt.get()
 
@@ -63,8 +64,8 @@ class SettingsAddonActivity : AppCompatActivity() {
 
             addonSettingsBack.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
 
-            val recyclerView = settingsRecyclerView
-            recyclerView.adapter = SettingsAdapter(
+            settingsRecyclerView = binding.settingsRecyclerView
+            settingsRecyclerView.adapter = SettingsAdapter(
                 arrayListOf(
                     Settings(
                         type = 1,
@@ -245,7 +246,7 @@ class SettingsAddonActivity : AppCompatActivity() {
                     )
                 )
             )
-            recyclerView.layoutManager =
+            settingsRecyclerView.layoutManager =
                 LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false)
 
         }
@@ -287,7 +288,7 @@ class SettingsAddonActivity : AppCompatActivity() {
                 setImageResource(R.drawable.ic_round_delete_24)
                 setOnClickListener {
                     YoloModelManager.deleteAllModels()
-                    (recyclerView.adapter as? SettingsAdapter)?.notifyDataSetChanged()
+                    (settingsRecyclerView.adapter as? SettingsAdapter)?.notifyDataSetChanged()
                 }
             } else {
                 setImageResource(R.drawable.ic_download_24)
