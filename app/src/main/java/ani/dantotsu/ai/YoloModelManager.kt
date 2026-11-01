@@ -142,11 +142,7 @@ object YoloModelManager {
 
                     for (attempt in 1..3) {
                         try {
-                            val downloaded = downloadFile(info.url, targetFile, info.sizeMB) { progress ->
-                                withContext(Dispatchers.Main) {
-                                    onProgress?.invoke(progress)
-                                }
-                            }
+                            val downloaded = downloadFile(info.url, targetFile, info.sizeMB, onProgress)
                             if (downloaded) {
                                 success = true
                                 break
@@ -177,7 +173,7 @@ object YoloModelManager {
         }
     }
 
-    private fun downloadFile(url: String, targetFile: File, expectedSizeMB: Double, onProgress: ((Double) -> Unit)?): Boolean {
+    private suspend fun downloadFile(url: String, targetFile: File, expectedSizeMB: Double, onProgress: ((Double) -> Unit)?): Boolean {
         var currentUrl = url
         var redirectCount = 0
         var success = false
