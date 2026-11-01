@@ -142,7 +142,11 @@ object YoloModelManager {
 
                     for (attempt in 1..3) {
                         try {
-                            val downloaded = downloadFile(info.url, targetFile, info.sizeMB, onProgress)
+                            val downloaded = downloadFile(info.url, targetFile, info.sizeMB) { progress ->
+                                withContext(Dispatchers.Main) {
+                                    onProgress?.invoke(progress)
+                                }
+                            }
                             if (downloaded) {
                                 success = true
                                 break
@@ -201,7 +205,10 @@ object YoloModelManager {
                                 output.write(buffer, 0, len)
                                 total += len
                                 if (contentLength > 0) {
-                                    onProgress?.invoke((total.toDouble() / connection.contentLengthLong) * 100)
+                                    val progress = (total.toDouble() / connection.contentLengthLong) * 100
+                                    withContext(Dispatchers.Main) {
+                                        onProgress?.invoke(progress)
+                                    }
                                 }
                             }
                         }

@@ -289,9 +289,10 @@ class SettingsAddonActivity : AppCompatActivity() {
                 setOnClickListener {
                     YoloModelManager.deleteAllModels()
                     (binding.settingsRecyclerView.adapter as? SettingsAdapter)?.notifyDataSetChanged()
+                    showRestartDialog()
                 }
             } else {
-                setImageResource(R.drawable.ic_round_arrow_drop_down_24)
+                setImageResource(R.drawable.ic_download_24)
                 setOnClickListener {
                     downloadBothModels(itemView)
                 }
@@ -335,7 +336,7 @@ class SettingsAddonActivity : AppCompatActivity() {
                 itemView.settingsDesc.text = getString(R.string.yolo_both_downloaded)
                 showRestartDialog()
             } else {
-                itemView.settingsIconRight.setImageResource(R.drawable.ic_round_arrow_drop_down_24)
+                itemView.settingsIconRight.setImageResource(R.drawable.ic_download_24)
                 itemView.settingsDesc.text = getString(R.string.yolo_download_failed)
             }
         }
@@ -413,7 +414,7 @@ class SettingsAddonActivity : AppCompatActivity() {
                 }
 
                 null -> {
-                    view.settingsIconRight.setImageResource(R.drawable.ic_round_arrow_drop_down_24)
+                    view.settingsIconRight.setImageResource(R.drawable.ic_download_24)
                     view.settingsIconRight.rotation = 0f
                     view.settingsDesc.text = context.getString(R.string.not_installed)
                 }
