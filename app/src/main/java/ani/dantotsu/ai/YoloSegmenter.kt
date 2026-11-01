@@ -31,7 +31,7 @@ class YoloSegmenter private constructor(
                 }
                 val interpreter = Interpreter(modelFile, options)
                 val inputTensor = interpreter.getInputTensor(0)
-                val inputSize = inputTensor.shape[1]
+                val inputSize = inputTensor.shape()[1]
                 instance = YoloSegmenter(interpreter, inputSize)
                 instance
             } catch (e: Exception) {
@@ -61,7 +61,7 @@ class YoloSegmenter private constructor(
         }
 
         val outputTensor = interpreter.getOutputTensor(0)
-        val outputShape = outputTensor.shape
+        val outputShape = outputTensor.shape()
         val outputBuffer = ByteBuffer.allocateDirect(4 * outputShape[1] * outputShape[2] * outputShape[3])
             .order(ByteOrder.nativeOrder())
 

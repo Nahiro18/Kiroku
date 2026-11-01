@@ -266,18 +266,16 @@ class SettingsAddonActivity : AppCompatActivity() {
         itemView.settingsIconRight.setImageResource(R.drawable.ic_sync)
         scope.launch {
             while (isActive && YoloModelManager.isDownloadingNow()) {
-                withContext(Dispatchers.Main) {
-                    itemView.settingsIconRight.animate()
-                        .rotationBy(360f)
-                        .setDuration(1000)
-                        .setInterpolator(LinearInterpolator())
-                        .start()
-                }
+                itemView.settingsIconRight.animate()
+                    .rotationBy(360f)
+                    .setDuration(1000)
+                    .setInterpolator(LinearInterpolator())
+                    .start()
                 delay(1000)
             }
         }
 
-        lifecycleScope.launch {
+        CoroutineScope(Dispatchers.Main).launch {
             val success = YoloModelManager.downloadModel { progress ->
                 withContext(Dispatchers.Main) {
                     if (isActive) {
