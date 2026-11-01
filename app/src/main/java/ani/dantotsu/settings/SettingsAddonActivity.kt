@@ -291,7 +291,7 @@ class SettingsAddonActivity : AppCompatActivity() {
                     (binding.settingsRecyclerView.adapter as? SettingsAdapter)?.notifyDataSetChanged()
                 }
             } else {
-                setImageResource(R.drawable.ic_download_24)
+                setImageResource(R.drawable.ic_round_arrow_drop_down_24)
                 setOnClickListener {
                     downloadBothModels(itemView)
                 }
@@ -335,7 +335,7 @@ class SettingsAddonActivity : AppCompatActivity() {
                 itemView.settingsDesc.text = getString(R.string.yolo_both_downloaded)
                 showRestartDialog()
             } else {
-                itemView.settingsIconRight.setImageResource(R.drawable.ic_download_24)
+                itemView.settingsIconRight.setImageResource(R.drawable.ic_round_arrow_drop_down_24)
                 itemView.settingsDesc.text = getString(R.string.yolo_download_failed)
             }
         }
@@ -345,7 +345,7 @@ class SettingsAddonActivity : AppCompatActivity() {
         clearAttachView(itemView)
         val currentModel = YoloModelManager.getSelectedModel()
         val spinner = Spinner(this).apply {
-            adapter = ArrayAdapter(this@SettingsAddonActivity, android.R.layout.simple_spinner_dropdown_item, arrayOf("YOLOv11n-seg (newer)", "YOLOv8n-seg (older)"))
+            adapter = ArrayAdapter(this@SettingsAddonActivity, android.R.layout.simple_spinner_dropdown_item, arrayOf("YOLOv11n-seg", "YOLOv8n-seg"))
             setSelection(currentModel.ordinal)
             onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
@@ -413,7 +413,7 @@ class SettingsAddonActivity : AppCompatActivity() {
                 }
 
                 null -> {
-                    view.settingsIconRight.setImageResource(R.drawable.ic_download_24)
+                    view.settingsIconRight.setImageResource(R.drawable.ic_round_arrow_drop_down_24)
                     view.settingsIconRight.rotation = 0f
                     view.settingsDesc.text = context.getString(R.string.not_installed)
                 }
