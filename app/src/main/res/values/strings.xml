@@ -1162,4 +1162,10 @@ Non quae tempore quo provident laudantium qui illo dolor vel quia dolor et exerc
     <string name="yolo_downloaded">Model downloaded</string>
     <string name="yolo_downloading">Downloading... %1$.0f%%</string>
     <string name="yolo_download_failed">Download failed</string>
+    <string name="yolo_ai_models">AI Segmentation Models</string>
+    <string name="yolo_ai_models_desc">Download both YOLOv11n-seg and YOLOv8n-seg models for image segmentation. Total size: ~7 MB</string>
+    <string name="yolo_both_downloaded">Both models downloaded</string>
+    <string name="yolo_one_downloaded">One model downloaded</string>
+    <string name="yolo_downloading_v11">Downloading YOLOv11... %1$.0f%%</string>
+    <string name="yolo_downloading_v8">Downloading YOLOv8... %1$.0f%%</string>
 </resources>

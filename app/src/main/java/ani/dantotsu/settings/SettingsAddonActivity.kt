@@ -215,51 +215,19 @@ class SettingsAddonActivity : AppCompatActivity() {
                     ),
                     Settings(
                         type = 1,
-                        name = getString(R.string.yolo_model_title),
-                        desc = getString(R.string.yolo_model_desc),
+                        name = getString(R.string.yolo_ai_models),
+                        desc = getString(R.string.yolo_ai_models_desc),
                         icon = R.drawable.ic_round_auto_awesome_24,
                         isActivity = false,
                         attach = { itemView ->
-                            setupYoloModelItem(itemView, YoloModelManager.Model.V11)
-                            itemView.settingsIconRight.setOnClickListener {
-                                val isDownloaded = YoloModelManager.isModelDownloaded(YoloModelManager.Model.V11)
-                                val isCompatible = YoloModelManager.isCompatible()
-                                if (!isCompatible) return@setOnClickListener
-                                if (isDownloaded) {
-                                    YoloModelManager.deleteModel(YoloModelManager.Model.V11)
-                                    (settingsRecyclerView.adapter as? SettingsAdapter)?.notifyDataSetChanged()
-                                } else {
-                                    downloadYoloModel(itemView, YoloModelManager.Model.V11)
-                                }
-                            }
-                        },
-                    ),
-                    Settings(
-                        type = 1,
-                        name = getString(R.string.yolo_model_v8_title),
-                        desc = getString(R.string.yolo_model_v8_desc),
-                        icon = R.drawable.ic_round_auto_awesome_24,
-                        isActivity = false,
-                        attach = { itemView ->
-                            setupYoloModelItem(itemView, YoloModelManager.Model.V8)
-                            itemView.settingsIconRight.setOnClickListener {
-                                val isDownloaded = YoloModelManager.isModelDownloaded(YoloModelManager.Model.V8)
-                                val isCompatible = YoloModelManager.isCompatible()
-                                if (!isCompatible) return@setOnClickListener
-                                if (isDownloaded) {
-                                    YoloModelManager.deleteModel(YoloModelManager.Model.V8)
-                                    (settingsRecyclerView.adapter as? SettingsAdapter)?.notifyDataSetChanged()
-                                } else {
-                                    downloadYoloModel(itemView, YoloModelManager.Model.V8)
-                                }
-                            }
+                            setupYoloModelsDownload(itemView)
                         },
                     ),
                     Settings(
                         type = 1,
                         name = getString(R.string.yolo_selected_model),
                         desc = getString(R.string.yolo_selected_model_desc),
-                        icon = R.drawable.swap_horizontal_circle_24,
+                        icon = R.drawable.ic_round_swap_horiz_24,
                         isActivity = false,
                         attach = { itemView ->
                             setupYoloModelSpinner(itemView)
@@ -294,33 +262,80 @@ class SettingsAddonActivity : AppCompatActivity() {
         downloadAddonManager.removeListenerAction()
     }
 
-    private fun setupYoloModelItem(itemView: ItemSettingsBinding, model: YoloModelManager.Model) {
-        val isDownloaded = YoloModelManager.isModelDownloaded(model)
+    private fun setupYoloModelsDownload(itemView: ItemSettingsBinding) {
+        val v11Downloaded = YoloModelManager.isModelDownloaded(YoloModelManager.Model.V11)
+        val v8Downloaded = YoloModelManager.isModelDownloaded(YoloModelManager.Model.V8)
         val isCompatible = YoloModelManager.isCompatible()
-        val sizeMB = YoloModelManager.getModelSizeMB(model)
+
+        val bothDownloaded = v11Downloaded && v8Downloaded
+        val anyDownloaded = v11Downloaded || v8Downloaded
 
         itemView.settingsDesc.text = if (!isCompatible) {
             getString(R.string.yolo_not_compatible)
-        } else if (isDownloaded) {
-            getString(R.string.yolo_downloaded)
+        } else if (bothDownloaded) {
+            getString(R.string.yolo_both_downloaded)
+        } else if (anyDownloaded) {
+            getString(R.string.yolo_one_downloaded)
         } else {
-            getString(R.string.yolo_model_desc).replace("~3.2", String.format("%.1f", sizeMB))
+            getString(R.string.yolo_ai_models_desc)
         }
 
         itemView.settingsIconRight.apply {
             if (!isCompatible) {
                 visibility = View.GONE
-            } else if (isDownloaded) {
+            } else if (bothDownloaded) {
                 setImageResource(R.drawable.ic_round_delete_24)
                 setOnClickListener {
-                    YoloModelManager.deleteModel(model)
+                    YoloModelManager.deleteAllModels()
                     (settingsRecyclerView.adapter as? SettingsAdapter)?.notifyDataSetChanged()
                 }
             } else {
                 setImageResource(R.drawable.ic_download_24)
                 setOnClickListener {
-                    downloadYoloModel(itemView, model)
+                    downloadBothModels(itemView)
                 }
+            }
+        }
+    }
+
+    private fun downloadBothModels(itemView: ItemSettingsBinding) {
+        if (YoloModelManager.isDownloadingNow()) return
+
+        val job = Job()
+        val scope = CoroutineScope(Dispatchers.Main + job)
+        itemView.settingsIconRight.setImageResource(R.drawable.ic_sync)
+        scope.launch {
+            while (isActive && YoloModelManager.isDownloadingNow()) {
+                itemView.settingsIconRight.animate()
+                    .rotationBy(360f)
+                    .setDuration(1000)
+                    .setInterpolator(LinearInterpolator())
+                    .start()
+                delay(1000)
+            }
+        }
+
+        CoroutineScope(Dispatchers.Main).launch {
+            val v11Success = YoloModelManager.downloadModel(YoloModelManager.Model.V11) { progress ->
+                if (isActive) {
+                    itemView.settingsDesc.text = getString(R.string.yolo_downloading_v11, progress)
+                }
+            }
+            val v8Success = YoloModelManager.downloadModel(YoloModelManager.Model.V8) { progress ->
+                if (isActive) {
+                    itemView.settingsDesc.text = getString(R.string.yolo_downloading_v8, progress)
+                }
+            }
+            job.cancel()
+            itemView.settingsIconRight.animate().cancel()
+            itemView.settingsIconRight.rotation = 0f
+            if (v11Success && v8Success) {
+                itemView.settingsIconRight.setImageResource(R.drawable.ic_round_delete_24)
+                itemView.settingsDesc.text = getString(R.string.yolo_both_downloaded)
+                showRestartDialog()
+            } else {
+                itemView.settingsIconRight.setImageResource(R.drawable.ic_download_24)
+                itemView.settingsDesc.text = getString(R.string.yolo_download_failed)
             }
         }
     }
@@ -328,7 +343,7 @@ class SettingsAddonActivity : AppCompatActivity() {
     private fun setupYoloModelSpinner(itemView: ItemSettingsBinding) {
         val currentModel = YoloModelManager.getSelectedModel()
         val spinner = Spinner(this).apply {
-            adapter = ArrayAdapter(this@SettingsAddonActivity, android.R.layout.simple_spinner_dropdown_item, arrayOf("YOLOv11n-seg", "YOLOv8n-seg"))
+            adapter = ArrayAdapter(this@SettingsAddonActivity, android.R.layout.simple_spinner_dropdown_item, arrayOf("YOLOv11n-seg (newer)", "YOLOv8n-seg (older)"))
             setSelection(currentModel.ordinal)
             onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
@@ -374,42 +389,6 @@ class SettingsAddonActivity : AppCompatActivity() {
             }
             .setNegativeButton(R.string.later) { _, _ -> }
             .show()
-    }
-
-    private fun downloadYoloModel(itemView: ItemSettingsBinding, model: YoloModelManager.Model) {
-        if (YoloModelManager.isDownloadingNow()) return
-
-        val job = Job()
-        val scope = CoroutineScope(Dispatchers.Main + job)
-        itemView.settingsIconRight.setImageResource(R.drawable.ic_sync)
-        scope.launch {
-            while (isActive && YoloModelManager.isDownloadingNow()) {
-                itemView.settingsIconRight.animate()
-                    .rotationBy(360f)
-                    .setDuration(1000)
-                    .setInterpolator(LinearInterpolator())
-                    .start()
-                delay(1000)
-            }
-        }
-
-        CoroutineScope(Dispatchers.Main).launch {
-            val success = YoloModelManager.downloadModel(model) { progress ->
-                if (isActive) {
-                    itemView.settingsDesc.text = getString(R.string.yolo_downloading, progress)
-                }
-            }
-            job.cancel()
-            itemView.settingsIconRight.animate().cancel()
-            itemView.settingsIconRight.rotation = 0f
-            if (success) {
-                itemView.settingsIconRight.setImageResource(R.drawable.ic_round_delete_24)
-                itemView.settingsDesc.text = getString(R.string.yolo_downloaded)
-            } else {
-                itemView.settingsIconRight.setImageResource(R.drawable.ic_download_24)
-                itemView.settingsDesc.text = getString(R.string.yolo_download_failed)
-            }
-        }
     }
 
     private fun setStatus(
