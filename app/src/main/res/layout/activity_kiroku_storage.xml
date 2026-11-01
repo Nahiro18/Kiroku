@@ -55,7 +55,7 @@
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="32dp"
             android:layout_marginBottom="16dp"
-            android:fontFamily="@font/poppins_regular"
+            android:fontFamily="@font/poppins"
             android:text="@string/storage_desc"
             android:textColor="?attr/colorOnBackground"
             android:textSize="14sp" />

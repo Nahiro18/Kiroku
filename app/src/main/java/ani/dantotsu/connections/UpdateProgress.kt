@@ -20,18 +20,33 @@ fun updateProgress(media: Media, number: String) {
             CoroutineScope(Dispatchers.IO).launch {
                 val a = number.toFloatOrNull()?.toInt()
                 if ((a ?: 0) > (media.userProgress ?: -1)) {
-                    Anilist.mutation.editList(
+                    val status = if (media.userStatus == "REPEATING") "REPEATING" else "CURRENT"
+                    val pushed = Anilist.mutation.editList(
                         media.id,
                         a,
-                        status = if (media.userStatus == "REPEATING") media.userStatus else "CURRENT"
+                        status = status
                     )
-                    MAL.query.editList(
-                        media.idMAL,
-                        media.anime != null,
-                        a, null,
-                        if (media.userStatus == "REPEATING") media.userStatus!! else "CURRENT"
-                    )
-                    toast(currContext()?.getString(R.string.setting_progress, a))
+                    if (pushed) {
+                        MAL.query.editList(
+                            media.idMAL,
+                            media.anime != null,
+                            a, null,
+                            status
+                        )
+                        toast(currContext()?.getString(R.string.setting_progress, a))
+                    } else if (a != null) {
+                        KirokuProgressQueue.enqueue(
+                            KirokuQueuedProgress(
+                                mediaId = media.id,
+                                malId = media.idMAL,
+                                anime = media.anime != null,
+                                progress = a,
+                                status = status,
+                            )
+                        )
+                        toast(currContext()?.getString(R.string.progress_queued, a))
+                    }
+                    KirokuProgressQueue.sync()
                 }
                 media.userProgress = a
                 Refresh.all()

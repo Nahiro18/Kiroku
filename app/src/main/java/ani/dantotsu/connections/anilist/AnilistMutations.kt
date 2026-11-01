@@ -186,7 +186,7 @@ class AnilistMutations {
         startedAt: FuzzyDate? = null,
         completedAt: FuzzyDate? = null,
         customList: List<String>? = null
-    ) {
+    ): Boolean {
         val query = """
             mutation (
                 ${"$"}mediaID: Int,
@@ -237,7 +237,8 @@ class AnilistMutations {
             ${if (customList != null) ""","customLists":[${customList.joinToString { "\"$it\"" }}]""" else ""}
             }""".replace("\n", "").replace("""    """, "")
         println(variables)
-        executeQuery<JsonObject>(query, variables, show = true)
+        val result = executeQuery<JsonObject>(query, variables, show = true)
+        return result != null && result.get("errors") == null
     }
 
     suspend fun deleteList(listId: Int) {

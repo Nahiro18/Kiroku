@@ -1132,4 +1132,6 @@ Non quae tempore quo provident laudantium qui illo dolor vel quia dolor et exerc
     <string name="storage_images">Images</string>
     <string name="storage_empty">Nothing stored</string>
     <string name="storage_cleared">Space freed</string>
+    <string name="progress_queued">Progress %1$d saved, it will sync when the connection returns</string>
+    <string name="progress_synced">%1$d pending updates synced</string>
 </resources>

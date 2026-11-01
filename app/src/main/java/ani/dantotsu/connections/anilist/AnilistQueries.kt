@@ -4,6 +4,7 @@ import android.util.Base64
 import ani.dantotsu.R
 import ani.dantotsu.checkGenreTime
 import ani.dantotsu.checkId
+import ani.dantotsu.connections.KirokuProgressQueue
 import ani.dantotsu.connections.anilist.Anilist.authorRoles
 import ani.dantotsu.connections.anilist.Anilist.executeQuery
 import ani.dantotsu.connections.anilist.api.FeedResponse
@@ -83,6 +84,7 @@ class AnilistQueries {
                 Anilist.mangaCustomLists = mangaList.customLists
             }
         }
+        KirokuProgressQueue.sync()
         return true
     }
 
