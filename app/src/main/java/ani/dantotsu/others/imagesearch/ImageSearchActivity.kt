@@ -153,7 +153,9 @@ class ImageSearchActivity : AppCompatActivity() {
 
         if (!useYolo && imageBytes != null) {
             val stream = java.io.ByteArrayInputStream(imageBytes!!)
-            viewModel.analyzeImage(stream)
+            lifecycleScope.launch(Dispatchers.IO) {
+                viewModel.analyzeImage(stream)
+            }
         }
     }
 
