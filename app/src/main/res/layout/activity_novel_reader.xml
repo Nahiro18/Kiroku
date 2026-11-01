@@ -112,6 +112,16 @@
                             tools:ignore="ContentDescription,SpeakableTextPresentCheck,ImageContrastCheck" />
 
                         <ImageButton
+                            android:id="@+id/novelReaderAutoScroll"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:backgroundTint="#00FFFFFF"
+                            android:scaleType="fitCenter"
+                            android:src="@drawable/ic_round_play_circle_24"
+                            app:tint="#fff"
+                            tools:ignore="ContentDescription,SpeakableTextPresentCheck,ImageContrastCheck" />
+
+                        <ImageButton
                             android:id="@+id/novelReaderSettings"
                             android:layout_width="48dp"
                             android:layout_height="48dp"

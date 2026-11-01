@@ -204,6 +204,10 @@ class NovelReaderActivity : AppCompatActivity(), EbookReaderEventListener {
         binding.bookReader.setEbookReaderListener(this)
 
         binding.novelReaderBack.setOnClickListener { finish() }
+        binding.novelReaderAutoScroll.setSafeOnClickListener {
+            val running = autoScroll.toggle()
+            binding.novelReaderAutoScroll.setImageResource(if (running) R.drawable.ic_round_pause_24 else R.drawable.ic_round_play_circle_24)
+        }
         binding.novelReaderSettings.setSafeOnClickListener {
             NovelReaderSettingsDialogFragment.newInstance()
                 .show(supportFragmentManager, NovelReaderSettingsDialogFragment.TAG)
@@ -419,6 +423,16 @@ class NovelReaderActivity : AppCompatActivity(), EbookReaderEventListener {
 
         if (defaultSettings.keepScreenOn) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        if (defaultSettings.autoScroll) {
+            autoScroll.speed = defaultSettings.autoScrollSpeed
+            autoScroll.attach(binding.bookReader)
+            autoScroll.start()
+            binding.novelReaderAutoScroll.setImageResource(R.drawable.ic_round_pause_24)
+        } else {
+            autoScroll.stop()
+            binding.novelReaderAutoScroll.setImageResource(R.drawable.ic_round_play_circle_24)
+        }
     }
 
 

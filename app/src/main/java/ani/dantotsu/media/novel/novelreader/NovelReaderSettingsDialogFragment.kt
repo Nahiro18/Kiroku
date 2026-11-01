@@ -209,6 +209,38 @@ class NovelReaderSettingsDialogFragment : BottomSheetDialogFragment() {
             settings.volumeButtons = isChecked
             activity.applySettings()
         }
+
+        binding.autoScroll.isChecked = settings.autoScroll
+        binding.autoScroll.setOnCheckedChangeListener { _, isChecked ->
+            settings.autoScroll = isChecked
+            activity.applySettings()
+        }
+        binding.autoScrollSpeedContainer.isEnabled = settings.autoScroll
+        binding.autoScrollSpeedContainer.alpha = if (settings.autoScroll) 1f else 0.5f
+
+        binding.autoScrollSpeed.setText(settings.autoScrollSpeed.toString())
+        binding.autoScrollSpeed.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) {
+                val value = binding.autoScrollSpeed.text.toString().toFloatOrNull() ?: 1f
+                settings.autoScrollSpeed = value.coerceIn(0.5f, 5f)
+                binding.autoScrollSpeed.setText(settings.autoScrollSpeed.toString())
+                activity.applySettings()
+            }
+        }
+
+        binding.incrementAutoScrollSpeed.setOnClickListener {
+            val value = binding.autoScrollSpeed.text.toString().toFloatOrNull() ?: 1f
+            settings.autoScrollSpeed = (value + 0.5f).coerceIn(0.5f, 5f)
+            binding.autoScrollSpeed.setText(settings.autoScrollSpeed.toString())
+            activity.applySettings()
+        }
+
+        binding.decrementAutoScrollSpeed.setOnClickListener {
+            val value = binding.autoScrollSpeed.text.toString().toFloatOrNull() ?: 1f
+            settings.autoScrollSpeed = (value - 0.5f).coerceIn(0.5f, 5f)
+            binding.autoScrollSpeed.setText(settings.autoScrollSpeed.toString())
+            activity.applySettings()
+        }
     }
 
 

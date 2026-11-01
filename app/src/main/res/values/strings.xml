@@ -1142,4 +1142,6 @@ Non quae tempore quo provident laudantium qui illo dolor vel quia dolor et exerc
     <string name="online_subtitle_languages_desc">Preferred subtitle languages</string>
     <string name="pref_wyzie_api_key">Wyzie API Key</string>
     <string name="pref_subsource_api_key">SubSource API Key</string>
+    <string name="auto_scroll">Auto Scroll</string>
+    <string name="auto_scroll_speed">Auto Scroll Speed</string>
 </resources>
