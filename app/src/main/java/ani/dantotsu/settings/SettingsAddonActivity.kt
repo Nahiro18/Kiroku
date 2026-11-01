@@ -214,32 +214,16 @@ class SettingsAddonActivity : AppCompatActivity() {
                         icon = R.drawable.ic_round_auto_awesome_24,
                         isActivity = false,
                         attach = { itemView ->
-                            val isDownloaded = YoloModelManager.isDownloaded()
-                            val isCompatible = YoloModelManager.isCompatible()
-                            val sizeMB = YoloModelManager.getModelSizeMB()
-
-                            itemView.settingsDesc.text = if (!isCompatible) {
-                                getString(R.string.yolo_not_compatible)
-                            } else if (isDownloaded) {
-                                getString(R.string.yolo_downloaded)
-                            } else {
-                                getString(R.string.yolo_model_desc).replace("~6.2", String.format("%.1f", sizeMB))
-                            }
-
-                            itemView.settingsIconRight.apply {
-                                if (!isCompatible) {
-                                    visibility = View.GONE
-                                } else if (isDownloaded) {
-                                    setImageResource(R.drawable.ic_round_delete_24)
-                                    setOnClickListener {
-                                        YoloModelManager.deleteModel()
-                                        (settingsRecyclerView.adapter as? SettingsAdapter)?.notifyItemChanged(settingsRecyclerView.getChildAdapterPosition(itemView.root))
-                                    }
+                            refreshYoloItem(itemView)
+                            itemView.settingsIconRight.setOnClickListener {
+                                val isDownloaded = YoloModelManager.isDownloaded()
+                                val isCompatible = YoloModelManager.isCompatible()
+                                if (!isCompatible) return@setOnClickListener
+                                if (isDownloaded) {
+                                    YoloModelManager.deleteModel()
+                                    refreshYoloItem(itemView)
                                 } else {
-                                    setImageResource(R.drawable.ic_download_24)
-                                    setOnClickListener {
-                                        downloadYoloModel(itemView)
-                                    }
+                                    downloadYoloModel(itemView)
                                 }
                             }
                         },
@@ -252,10 +236,39 @@ class SettingsAddonActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        (binding.settingsRecyclerView.adapter as? SettingsAdapter)?.notifyDataSetChanged()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         torrentAddonManager.removeListenerAction()
         downloadAddonManager.removeListenerAction()
+    }
+
+    private fun refreshYoloItem(itemView: ItemSettingsBinding) {
+        val isDownloaded = YoloModelManager.isDownloaded()
+        val isCompatible = YoloModelManager.isCompatible()
+        val sizeMB = YoloModelManager.getModelSizeMB()
+
+        itemView.settingsDesc.text = if (!isCompatible) {
+            getString(R.string.yolo_not_compatible)
+        } else if (isDownloaded) {
+            getString(R.string.yolo_downloaded)
+        } else {
+            getString(R.string.yolo_model_desc).replace("~6.2", String.format("%.1f", sizeMB))
+        }
+
+        itemView.settingsIconRight.apply {
+            if (!isCompatible) {
+                visibility = View.GONE
+            } else if (isDownloaded) {
+                setImageResource(R.drawable.ic_round_delete_24)
+            } else {
+                setImageResource(R.drawable.ic_download_24)
+            }
+        }
     }
 
     private fun downloadYoloModel(itemView: ItemSettingsBinding) {

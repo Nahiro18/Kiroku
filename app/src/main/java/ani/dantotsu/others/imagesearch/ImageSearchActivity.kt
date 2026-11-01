@@ -43,6 +43,7 @@ class ImageSearchActivity : AppCompatActivity() {
     private var useYolo = false
     private var yoloSegmenter: YoloSegmenter? = null
     private var originalBitmap: Bitmap? = null
+    private var imageBytes: ByteArray? = null
 
     private val cropImageLauncher =
         registerForActivityResult(CropImageContract()) { result ->
@@ -63,23 +64,30 @@ class ImageSearchActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             val inputStream = contentResolver.openInputStream(imageUri)
             if (inputStream != null) {
-                val bitmap = BitmapFactory.decodeStream(inputStream)
+                val bytes = inputStream.readBytes()
                 inputStream.close()
-                if (bitmap != null) {
-                    withContext(Dispatchers.Main) {
-                        originalBitmap = bitmap
-                        displayImage(bitmap)
-                    }
-                    if (useYolo) {
-                        runYoloSegmentation(bitmap)
+                if (bytes.isNotEmpty()) {
+                    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    if (bitmap != null) {
+                        imageBytes = bytes
+                        withContext(Dispatchers.Main) {
+                            originalBitmap = bitmap
+                            displayImage(bitmap)
+                        }
                     } else {
-                        viewModel.analyzeImage(inputStream)
+                        withContext(Dispatchers.Main) {
+                            toast(getString(R.string.error_loading_image))
+                        }
                     }
                 } else {
-                    toast(getString(R.string.error_loading_image))
+                    withContext(Dispatchers.Main) {
+                        toast(getString(R.string.error_loading_image))
+                    }
                 }
             } else {
-                toast(getString(R.string.error_loading_image))
+                withContext(Dispatchers.Main) {
+                    toast(getString(R.string.error_loading_image))
+                }
             }
         }
     }
@@ -125,6 +133,8 @@ class ImageSearchActivity : AppCompatActivity() {
         binding.imagePreview.visibility = View.VISIBLE
         binding.uploadImage.text = getString(R.string.search_again)
         binding.yoloContainer.visibility = View.VISIBLE
+        binding.yoloToggle.setOnCheckedChangeListener(null)
+        binding.yoloToggle.isChecked = useYolo
         binding.yoloToggle.setOnCheckedChangeListener { _, isChecked ->
             useYolo = isChecked
             if (isChecked) {
@@ -132,6 +142,7 @@ class ImageSearchActivity : AppCompatActivity() {
                     runYoloSegmentation(originalBitmap!!)
                 } else {
                     binding.yoloToggle.isChecked = false
+                    useYolo = false
                     toast("Model not downloaded. Go to Addons to download it.")
                 }
             } else {
@@ -139,6 +150,11 @@ class ImageSearchActivity : AppCompatActivity() {
             }
         }
         binding.progressBar.visibility = View.GONE
+
+        if (!useYolo && imageBytes != null) {
+            val stream = java.io.ByteArrayInputStream(imageBytes!!)
+            viewModel.analyzeImage(stream)
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -207,5 +223,6 @@ class ImageSearchActivity : AppCompatActivity() {
         super.onDestroy()
         yoloSegmenter = null
         originalBitmap = null
+        imageBytes = null
     }
 }
