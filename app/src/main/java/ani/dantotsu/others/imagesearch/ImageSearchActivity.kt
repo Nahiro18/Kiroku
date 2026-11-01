@@ -165,6 +165,7 @@ class ImageSearchActivity : AppCompatActivity() {
                 }
             } else {
                 binding.imagePreview.setImageBitmap(originalBitmap)
+                releaseYoloResources()
             }
         }
         binding.progressBar.visibility = View.GONE
@@ -174,6 +175,13 @@ class ImageSearchActivity : AppCompatActivity() {
             lifecycleScope.launch(Dispatchers.IO) {
                 viewModel.analyzeImage(stream)
             }
+        }
+    }
+
+    private fun releaseYoloResources() {
+        yoloSegmenter?.let {
+            YoloSegmenter.release()
+            yoloSegmenter = null
         }
     }
 
@@ -192,6 +200,7 @@ class ImageSearchActivity : AppCompatActivity() {
             binding.imagePreview.setImageBitmap(null)
             binding.imagePreview.visibility = View.GONE
             binding.yoloContainer.visibility = View.GONE
+            releaseYoloResources()
             imageSelectionLauncher.launch("image/*")
         }
         binding.imageSearchTitle.setOnClickListener {
@@ -202,8 +211,8 @@ class ImageSearchActivity : AppCompatActivity() {
             result?.let { displayResult(it) }
         }
 
-        binding.yoloToggle.isChecked = PrefManager.getVal(PrefName.UseYoloForImageSearch)
-        useYolo = binding.yoloToggle.isChecked
+        binding.yoloToggle.isChecked = false
+        useYolo = false
     }
 
     private fun displayResult(result: ImageSearchViewModel.SearchResult) {
@@ -241,7 +250,7 @@ class ImageSearchActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        yoloSegmenter = null
+        releaseYoloResources()
         originalBitmap = null
         imageBytes = null
     }
