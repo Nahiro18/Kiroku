@@ -203,6 +203,7 @@ enum class PrefName(val data: Pref) {
     TagsListNonAdult(Pref(Location.Irrelevant, Set::class, setOf<String>())),
     MakeDefault(Pref(Location.Irrelevant, Boolean::class, true)),
     FirstComment(Pref(Location.Irrelevant, Boolean::class, true)),
+    UseYoloForImageSearch(Pref(Location.Irrelevant, Boolean::class, false)),
     CommentAuthResponse(Pref(Location.Irrelevant, AuthResponse::class, "")),
     CommentTokenExpiry(Pref(Location.Irrelevant, Long::class, 0L)),
     LogToFile(Pref(Location.Irrelevant, Boolean::class, false)),

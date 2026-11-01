@@ -1144,4 +1144,14 @@ Non quae tempore quo provident laudantium qui illo dolor vel quia dolor et exerc
     <string name="pref_subsource_api_key">SubSource API Key</string>
     <string name="auto_scroll">Auto Scroll</string>
     <string name="auto_scroll_speed">Auto Scroll Speed</string>
+    <string name="use_yolo_segmentation">Use AI Segmentation (YOLOv8n-seg)</string>
+    <string name="search_again">Search Again</string>
+    <string name="yolo_model_title">YOLOv8n-seg Model</string>
+    <string name="yolo_model_desc">Download the AI model for image segmentation during anime search by image. Size: ~6.2 MB</string>
+    <string name="yolo_download">Download Model</string>
+    <string name="yolo_delete">Delete Model</string>
+    <string name="yolo_downloading">Downloading... %1$.0f%%</string>
+    <string name="yolo_downloaded">Model downloaded</string>
+    <string name="yolo_not_compatible">Device not compatible (requires Android 9+)</string>
+    <string name="yolo_download_failed">Download failed</string>
 </resources>

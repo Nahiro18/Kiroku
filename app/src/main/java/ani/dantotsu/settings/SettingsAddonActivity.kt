@@ -9,6 +9,7 @@ import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import ani.dantotsu.R
+import ani.dantotsu.ai.YoloModelManager
 import ani.dantotsu.addons.AddonDownloader
 import ani.dantotsu.addons.download.DownloadAddonManager
 import ani.dantotsu.addons.torrent.TorrentAddonManager
@@ -203,6 +204,43 @@ class SettingsAddonActivity : AppCompatActivity() {
                                 }
                             }
                         },
+                    ),
+                    Settings(
+                        type = 1,
+                        name = getString(R.string.yolo_model_title),
+                        desc = getString(R.string.yolo_model_desc),
+                        icon = R.drawable.ic_round_auto_awesome_24,
+                        isActivity = false,
+                        attach = { itemView ->
+                            val isDownloaded = YoloModelManager.isDownloaded()
+                            val isCompatible = YoloModelManager.isCompatible()
+                            val sizeMB = YoloModelManager.getModelSizeMB()
+
+                            itemView.settingsDesc.text = if (!isCompatible) {
+                                getString(R.string.yolo_not_compatible)
+                            } else if (isDownloaded) {
+                                getString(R.string.yolo_downloaded)
+                            } else {
+                                getString(R.string.yolo_model_desc).replace("~6.2", String.format("%.1f", sizeMB))
+                            }
+
+                            itemView.settingsIconRight.apply {
+                                if (!isCompatible) {
+                                    visibility = View.GONE
+                                } else if (isDownloaded) {
+                                    setImageResource(R.drawable.ic_round_delete_24)
+                                    setOnClickListener {
+                                        YoloModelManager.deleteModel()
+                                        notifyItemChanged(binding.settingsRecyclerView.getChildAdapterPosition(itemView.root))
+                                    }
+                                } else {
+                                    setImageResource(R.drawable.ic_download_24)
+                                    setOnClickListener {
+                                        downloadYoloModel(itemView)
+                                    }
+                                }
+                            }
+                        },
                     )
                 )
             )
@@ -216,6 +254,48 @@ class SettingsAddonActivity : AppCompatActivity() {
         super.onDestroy()
         torrentAddonManager.removeListenerAction()
         downloadAddonManager.removeListenerAction()
+    }
+
+    private fun downloadYoloModel(itemView: ItemSettingsBinding) {
+        if (YoloModelManager.isDownloadingNow()) return
+
+        val job = Job()
+        val scope = CoroutineScope(Dispatchers.Main + job)
+        itemView.settingsIconRight.setImageResource(R.drawable.ic_sync)
+        scope.launch {
+            while (isActive && YoloModelManager.isDownloadingNow()) {
+                withContext(Dispatchers.Main) {
+                    itemView.settingsIconRight.animate()
+                        .rotationBy(360f)
+                        .setDuration(1000)
+                        .setInterpolator(LinearInterpolator())
+                        .start()
+                }
+                delay(1000)
+            }
+        }
+
+        lifecycleScope.launchIO {
+            val success = YoloModelManager.downloadModel { progress ->
+                withContext(Dispatchers.Main) {
+                    if (isActive) {
+                        itemView.settingsDesc.text = getString(R.string.yolo_downloading, progress)
+                    }
+                }
+            }
+            withContext(Dispatchers.Main) {
+                job.cancel()
+                itemView.settingsIconRight.animate().cancel()
+                itemView.settingsIconRight.rotation = 0f
+                if (success) {
+                    itemView.settingsIconRight.setImageResource(R.drawable.ic_round_delete_24)
+                    itemView.settingsDesc.text = getString(R.string.yolo_downloaded)
+                } else {
+                    itemView.settingsIconRight.setImageResource(R.drawable.ic_download_24)
+                    itemView.settingsDesc.text = getString(R.string.yolo_download_failed)
+                }
+            }
+        }
     }
 
     private fun setStatus(

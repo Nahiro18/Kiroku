@@ -1,10 +1,13 @@
 package ani.dantotsu.others.imagesearch
 
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
+import android.widget.CompoundButton
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -14,11 +17,16 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import ani.dantotsu.App.Companion.context
 import ani.dantotsu.R
+import ani.dantotsu.ai.YoloModelManager
+import ani.dantotsu.ai.YoloSegmenter
+import ani.dantotsu.ai.SegmentationResult
 import ani.dantotsu.connections.anilist.Anilist
 import ani.dantotsu.databinding.ActivityImageSearchBinding
 import ani.dantotsu.initActivity
 import ani.dantotsu.media.MediaDetailsActivity
 import ani.dantotsu.navBarHeight
+import ani.dantotsu.settings.saving.PrefManager
+import ani.dantotsu.settings.saving.PrefName
 import ani.dantotsu.themes.ThemeManager
 import ani.dantotsu.toast
 import com.canhub.cropper.CropImageContract
@@ -31,6 +39,9 @@ import kotlinx.coroutines.withContext
 class ImageSearchActivity : AppCompatActivity() {
     private lateinit var binding: ActivityImageSearchBinding
     private val viewModel: ImageSearchViewModel by viewModels()
+    private var useYolo = false
+    private var yoloSegmenter: YoloSegmenter? = null
+    private var originalBitmap: Bitmap? = null
 
     private val cropImageLauncher =
         registerForActivityResult(CropImageContract()) { result ->
@@ -49,16 +60,84 @@ class ImageSearchActivity : AppCompatActivity() {
     private fun analyzeUri(imageUri: Uri) {
         val contentResolver = applicationContext.contentResolver
         lifecycleScope.launch(Dispatchers.IO) {
-            withContext(Dispatchers.Main) {
-                binding.progressBar.visibility = View.VISIBLE
-            }
             val inputStream = contentResolver.openInputStream(imageUri)
-            if (inputStream != null) viewModel.analyzeImage(inputStream)
-            else toast(getString(R.string.error_loading_image))
-            withContext(Dispatchers.Main) {
-                binding.progressBar.visibility = View.GONE
+            if (inputStream != null) {
+                val bitmap = BitmapFactory.decodeStream(inputStream)
+                inputStream.close()
+                if (bitmap != null) {
+                    withContext(Dispatchers.Main) {
+                        originalBitmap = bitmap
+                        displayImage(bitmap)
+                    }
+                    if (useYolo) {
+                        runYoloSegmentation(bitmap)
+                    } else {
+                        viewModel.analyzeImage(inputStream)
+                    }
+                } else {
+                    toast(getString(R.string.error_loading_image))
+                }
+            } else {
+                toast(getString(R.string.error_loading_image))
             }
         }
+    }
+
+    private fun runYoloSegmentation(bitmap: Bitmap) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val modelPath = YoloModelManager.getModelPath() ?: return@launch
+            val modelFile = File(modelPath)
+            if (!modelFile.exists()) {
+                withContext(Dispatchers.Main) {
+                    toast("YOLO model not found")
+                    useYolo = false
+                    binding.yoloToggle.isChecked = false
+                }
+                return@launch
+            }
+
+            yoloSegmenter = withContext(Dispatchers.Main) {
+                YoloSegmenter.getInstance(this@ImageSearchActivity, modelFile)
+            } ?: return@launch
+
+            val results = yoloSegmenter!!.segment(bitmap)
+
+            withContext(Dispatchers.Main) {
+                drawSegmentationOverlay(bitmap, results)
+            }
+        }
+    }
+
+    private fun drawSegmentationOverlay(bitmap: Bitmap, results: List<SegmentationResult>) {
+        val overlayBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
+        val canvas = Canvas(overlayBitmap)
+        val paint = android.graphics.Paint()
+
+        yoloSegmenter?.drawSegmentation(canvas, bitmap, results, paint)
+
+        binding.imagePreview.setImageBitmap(overlayBitmap)
+        binding.progressBar.visibility = View.GONE
+    }
+
+    private fun displayImage(bitmap: Bitmap) {
+        binding.imagePreview.setImageBitmap(bitmap)
+        binding.imagePreview.visibility = View.VISIBLE
+        binding.uploadImage.text = getString(R.string.search_again)
+        binding.yoloContainer.visibility = View.VISIBLE
+        binding.yoloToggle.setOnCheckedChangeListener { _, isChecked ->
+            useYolo = isChecked
+            if (isChecked) {
+                if (YoloModelManager.isDownloaded()) {
+                    runYoloSegmentation(originalBitmap!!)
+                } else {
+                    binding.yoloToggle.isChecked = false
+                    toast("Model not downloaded. Go to Addons to download it.")
+                }
+            } else {
+                binding.imagePreview.setImageBitmap(originalBitmap)
+            }
+        }
+        binding.progressBar.visibility = View.GONE
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,6 +152,9 @@ class ImageSearchActivity : AppCompatActivity() {
         }
         binding.uploadImage.setOnClickListener {
             viewModel.clearResults()
+            binding.imagePreview.setImageBitmap(null)
+            binding.imagePreview.visibility = View.GONE
+            binding.yoloContainer.visibility = View.GONE
             imageSelectionLauncher.launch("image/*")
         }
         binding.imageSearchTitle.setOnClickListener {
@@ -83,6 +165,8 @@ class ImageSearchActivity : AppCompatActivity() {
             result?.let { displayResult(it) }
         }
 
+        binding.yoloToggle.isChecked = PrefManager.getVal(PrefName.UseYoloForImageSearch)
+        useYolo = binding.yoloToggle.isChecked
     }
 
     private fun displayResult(result: ImageSearchViewModel.SearchResult) {
@@ -116,5 +200,11 @@ class ImageSearchActivity : AppCompatActivity() {
             recyclerView.adapter = adapter
             recyclerView.layoutManager = LinearLayoutManager(context)
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        yoloSegmenter = null
+        originalBitmap = null
     }
 }

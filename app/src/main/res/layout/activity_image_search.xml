@@ -24,6 +24,41 @@
             app:drawableStartCompat="@drawable/ic_round_arrow_back_ios_new_24"
             app:drawableTint="?attr/colorOnBackground" />
 
+        <LinearLayout
+            android:id="@+id/yoloContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="16dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="@font/poppins_bold"
+                android:text="@string/use_yolo_segmentation"
+                android:textColor="?attr/colorOnBackground"
+                android:textSize="16sp" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/yoloToggle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="false" />
+
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/imagePreview"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:layout_margin="16dp"
+            android:scaleType="centerCrop"
+            android:visibility="gone"
+            android:background="?attr/colorSurfaceVariant"
+            tools:ignore="ContentDescription" />
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/recyclerView"
@@ -58,6 +93,5 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-
         android:visibility="invisible" />
 </FrameLayout>
