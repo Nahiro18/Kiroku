@@ -227,7 +227,7 @@ class SettingsAddonActivity : AppCompatActivity() {
                         type = 1,
                         name = getString(R.string.yolo_selected_model),
                         desc = getString(R.string.yolo_selected_model_desc),
-                        icon = R.drawable.ic_round_swap_horiz_24,
+                        icon = R.drawable.swap_horizontal_circle_24,
                         isActivity = false,
                         attach = { itemView ->
                             setupYoloModelSpinner(itemView)
@@ -287,7 +287,7 @@ class SettingsAddonActivity : AppCompatActivity() {
                 setImageResource(R.drawable.ic_round_delete_24)
                 setOnClickListener {
                     YoloModelManager.deleteAllModels()
-                    (settingsRecyclerView.adapter as? SettingsAdapter)?.notifyDataSetChanged()
+                    (recyclerView.adapter as? SettingsAdapter)?.notifyDataSetChanged()
                 }
             } else {
                 setImageResource(R.drawable.ic_download_24)
