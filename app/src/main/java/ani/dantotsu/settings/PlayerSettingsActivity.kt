@@ -312,8 +312,8 @@ class PlayerSettingsActivity :
         binding.playerSettingsOnlineSubtitleProvidersCard.alpha = if (providersEnabled) 1f else 0.5f
         binding.playerSettingsOnlineSubtitleLanguagesCard.alpha = if (providersEnabled) 1f else 0.5f
 
-        val allProviders = arrayOf("Wyzie", "Stremio", "SubSource", "OpenSubtitles")
-        val allProviderLabels = arrayOf("Wyzie", "Stremio OpenSubtitles", "SubSource", "OpenSubtitles REST")
+        val allProviders = arrayOf("Wyzie", "SubSource", "OpenSubtitles")
+        val allProviderLabels = arrayOf("Wyzie", "SubSource", "OpenSubtitles REST")
         val selectedProviders = PrefManager.getVal<Set<String>>(PrefName.OnlineSubtitleProviders).toMutableSet()
         allProviders.forEachIndexed { index, provider ->
             val chip = com.google.android.material.chip.Chip(this).apply {

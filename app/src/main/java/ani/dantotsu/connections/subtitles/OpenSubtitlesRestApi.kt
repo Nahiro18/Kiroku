@@ -5,16 +5,14 @@ import ani.dantotsu.okHttpClient
 import ani.dantotsu.util.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 
 object OpenSubtitlesRestApi {
     private const val API_KEY = "uyBLgFD17MgrYmA0gSXoKllMJBelOYj2"
     private const val HOST = "https://api.opensubtitles.com/api/v1"
     private const val USER_AGENT = "Kiroku v1"
-    private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
 
     suspend fun search(imdbId: String, episode: Int, season: Int? = null): List<OpenSubRestItem> {
         return withContext(Dispatchers.IO) {
@@ -67,32 +65,6 @@ object OpenSubtitlesRestApi {
             }
         }
     }
-
-    suspend fun getDownloadUrl(fileId: Int): String? {
-        return withContext(Dispatchers.IO) {
-            try {
-                val bodyStr = """{"file_id":$fileId}"""
-                val req = Request.Builder()
-                    .url("$HOST/download")
-                    .addHeader("Api-Key", API_KEY)
-                    .addHeader("User-Agent", USER_AGENT)
-                    .addHeader("Content-Type", "application/json")
-                    .addHeader("Accept", "application/json")
-                    .post(bodyStr.toRequestBody(JSON_MEDIA_TYPE))
-                    .build()
-                okHttpClient.newCall(req).execute().use { resp ->
-                    if (resp.isSuccessful) {
-                        val json = resp.body.string()
-                        val parsed = Mapper.json.decodeFromString<OpenSubDownloadResponse>(json)
-                        parsed.link
-                    } else null
-                }
-            } catch (e: Exception) {
-                Logger.log("OpenSubtitles download error: ${e.message}")
-                null
-            }
-        }
-    }
 }
 
 @Serializable
@@ -104,9 +76,7 @@ data class OpenSubRestItem(
 )
 
 @Serializable
-data class OpenSubRestResponse(
-    val data: List<OpenSubData> = emptyList()
-)
+data class OpenSubRestResponse(val data: List<OpenSubData> = emptyList())
 
 @Serializable
 data class OpenSubData(
@@ -125,11 +95,5 @@ data class OpenSubAttributes(
 @Serializable
 data class OpenSubFile(
     @SerialName("file_id") val fileId: Int? = null,
-    @SerialName("file_name") val fileName: String? = null
-)
-
-@Serializable
-data class OpenSubDownloadResponse(
-    val link: String? = null,
     @SerialName("file_name") val fileName: String? = null
 )

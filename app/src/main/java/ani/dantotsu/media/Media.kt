@@ -80,6 +80,7 @@ data class Media(
     var users: ArrayList<User>? = null,
     var vrvId: String? = null,
     var crunchySlug: String? = null,
+    var idIMDB: String? = null,
 
     var nameMAL: String? = null,
     var shareLink: String? = null,
