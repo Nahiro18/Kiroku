@@ -370,8 +370,7 @@ class SearchActivity : AppCompatActivity() {
     }
 
     fun emptyMediaAdapter() {
-        searchTimer.cancel()
-        searchTimer.purge()
+        searchJob?.cancel()
         when (searchType) {
             SearchType.ANIME, SearchType.MANGA -> {
                 mediaAdaptor.notifyItemRangeRemoved(0, model.aniMangaSearchResults.results.size)

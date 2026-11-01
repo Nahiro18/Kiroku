@@ -101,9 +101,9 @@ object KirokuEpisodeCache {
             extra = extra?.takeIf { it.isNotEmpty() },
             sourceName = runCatching { source?.name }.getOrNull() ?: "",
             sourceUrl = runCatching { source?.url }.getOrNull() ?: link ?: "",
-            sourceNumber = runCatching { source?.episode_number }.getOrDefault(-1f),
+            sourceNumber = runCatching { source?.episode_number }.getOrNull() ?: -1f,
             sourceScanlator = runCatching { source?.scanlator }.getOrNull(),
-            sourceDate = runCatching { source?.date_upload }.getOrDefault(0L),
+            sourceDate = runCatching { source?.date_upload }.getOrNull() ?: 0L,
         )
     }
 
