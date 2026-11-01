@@ -210,7 +210,7 @@ class ImageSearchActivity : AppCompatActivity() {
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 )
-                setBackgroundColor(getColor(R.color.colorPrimary))
+                setBackgroundColor(getColor(R.color.colorAccent))
                 setTextColor(getColor(android.R.color.white))
                 textSize = 16f
                 setOnClickListener { performSearch() }
