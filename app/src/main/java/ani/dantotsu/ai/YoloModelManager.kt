@@ -185,7 +185,7 @@ object YoloModelManager {
                 connection.readTimeout = 180000
                 connection.requestMethod = "GET"
                 connection.addRequestProperty("User-Agent", "Kiroku/1.0")
-                connection.instance.followRedirects = false
+                connection.followRedirects = false
 
                 val responseCode = connection.responseCode
                 if (responseCode == 200) {
