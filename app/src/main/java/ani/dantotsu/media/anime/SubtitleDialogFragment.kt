@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.annotation.OptIn
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.util.UnstableApi
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -14,6 +15,7 @@ import ani.dantotsu.BottomSheetDialogFragment
 import ani.dantotsu.R
 import ani.dantotsu.databinding.BottomSheetSubtitlesBinding
 import ani.dantotsu.databinding.ItemSubtitleTextBinding
+import ani.dantotsu.media.Media
 import ani.dantotsu.media.MediaDetailsViewModel
 import ani.dantotsu.parsers.Subtitle
 import ani.dantotsu.settings.saving.PrefManager
@@ -21,6 +23,7 @@ import ani.dantotsu.connections.subtitles.SubtitleProviders
 import ani.dantotsu.connections.subtitles.UnifiedSubtitle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class SubtitleDialogFragment : BottomSheetDialogFragment() {
     private var _binding: BottomSheetSubtitlesBinding? = null
@@ -56,7 +59,7 @@ class SubtitleDialogFragment : BottomSheetDialogFragment() {
         val enabled = PrefManager.getVal<Boolean>(ani.dantotsu.settings.saving.PrefName.OnlineSubtitlesEnabled)
         if (!enabled) return
         val imdbId = media.idIMDB ?: return
-        val season = episode.season ?: return
+        val season = media.anime?.season?.toIntOrNull() ?: return
         val epNum = episode.number.toIntOrNull() ?: return
         lifecycleScope.launch(Dispatchers.IO) {
             val subs = SubtitleProviders.searchAll(media, season, epNum)
