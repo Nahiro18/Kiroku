@@ -1340,7 +1340,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:checked="false"
-                android:drawableStart="@drawable/ic_round_closed_caption_24"
+                android:drawableStart="@drawable/ic_round_subtitles_24"
                 android:drawablePadding="16dp"
                 android:elegantTextHeight="true"
                 android:fontFamily="@font/poppins_bold"
