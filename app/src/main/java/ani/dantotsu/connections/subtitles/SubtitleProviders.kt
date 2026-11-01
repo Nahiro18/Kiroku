@@ -2,14 +2,16 @@ package ani.dantotsu.connections.subtitles
 
 import ani.dantotsu.Mapper
 import ani.dantotsu.okHttpClient
+import ani.dantotsu.client
 import ani.dantotsu.settings.saving.PrefManager
 import ani.dantotsu.settings.saving.PrefName
+import ani.dantotsu.media.Media
 import ani.dantotsu.util.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import okhttp3.Request
-import ani.dantotsu.media.Media
 
 object SubtitleProviders {
     private const val WYZIE_BASE = "https://sub.wyzie.io/search"

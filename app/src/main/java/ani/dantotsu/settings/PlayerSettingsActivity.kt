@@ -314,7 +314,7 @@ class PlayerSettingsActivity :
 
         val allProviders = arrayOf("Wyzie", "SubSource", "OpenSubtitles")
         val allProviderLabels = arrayOf("Wyzie", "SubSource", "OpenSubtitles REST")
-        val selectedProviders = PrefManager.getVal<Set<String>>(PrefName.OnlineSubtitleProviders).toMutableSet()
+        val selectedProviders = PrefManager.getVal(PrefName.OnlineSubtitleProviders, setOf<String>()).toMutableSet()
         allProviders.forEachIndexed { index, provider ->
             val chip = com.google.android.material.chip.Chip(this).apply {
                 text = allProviderLabels[index]
@@ -329,7 +329,7 @@ class PlayerSettingsActivity :
         }
 
         val allLanguages = arrayOf("en", "es", "fr", "de", "pt", "it", "ru", "ja", "zh", "ko", "ar", "tr", "pl", "nl", "sv", "he", "hi", "id", "uk", "ro")
-        val selectedLanguages = PrefManager.getVal<Set<String>>(PrefName.OnlineSubtitleLanguages).toMutableSet()
+        val selectedLanguages = PrefManager.getVal(PrefName.OnlineSubtitleLanguages, setOf<String>()).toMutableSet()
         allLanguages.forEach { lang ->
             val chip = com.google.android.material.chip.Chip(this).apply {
                 text = lang.uppercase()
