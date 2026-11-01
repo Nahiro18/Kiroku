@@ -37,6 +37,7 @@ import ani.dantotsu.hideSystemBars
 import ani.dantotsu.others.ImageViewDialog
 import ani.dantotsu.others.ResettableTimer
 import ani.dantotsu.setSafeOnClickListener
+import ani.dantotsu.media.novel.novelreader.NovelReaderAutoScroll
 import ani.dantotsu.settings.CurrentNovelReaderSettings
 import ani.dantotsu.settings.CurrentReaderSettings
 import ani.dantotsu.settings.saving.PrefManager
@@ -87,6 +88,8 @@ class NovelReaderActivity : AppCompatActivity(), EbookReaderEventListener {
     val themes = ArrayList<ReaderTheme>()
 
     var defaultSettings = CurrentNovelReaderSettings()
+
+    val autoScroll = NovelReaderAutoScroll()
 
 
     init {
