@@ -151,6 +151,16 @@ class SettingsActivity : AppCompatActivity() {
                     ),
                     Settings(
                         type = 1,
+                        name = getString(R.string.storage),
+                        desc = getString(R.string.storage_desc),
+                        icon = R.drawable.ic_round_sd_card_24,
+                        onClick = {
+                            startActivity(Intent(context, KirokuStorageActivity::class.java))
+                        },
+                        isActivity = true
+                    ),
+                    Settings(
+                        type = 1,
                         name = getString(R.string.notifications),
                         desc = getString(R.string.notifications_desc),
                         icon = R.drawable.ic_round_notifications_none_24,

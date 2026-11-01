@@ -7,13 +7,6 @@ import java.security.MessageDigest
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 
-/**
- * Almacenamiento simple en disco para Kiroku.
- *
- * Guarda texto comprimido (gzip / nio) bajo `files/kiroku_cache/<tipo>/`.
- * El nombre del archivo es un hash del origen y el enlace, así que nunca
- * depende de caracteres raros que traigan las fuentes.
- */
 internal object KirokuCacheFile {
 
     private const val ROOT_DIR = "kiroku_cache"
@@ -43,7 +36,7 @@ internal object KirokuCacheFile {
         return runCatching {
             GZIPInputStream(file.inputStream()).bufferedReader().use { it.readText() }
         }.onFailure {
-            Logger.log("Kiroku cache: no se pudo leer ${file.name} (${it.message})")
+            Logger.log("Kiroku cache read failed: ${it.message}")
         }.getOrNull()
     }
 
@@ -53,12 +46,28 @@ internal object KirokuCacheFile {
             GZIPOutputStream(file.outputStream()).bufferedWriter().use { it.write(text) }
             prune(kind)
         }.onFailure {
-            Logger.log("Kiroku cache: no se pudo guardar ${file.name} (${it.message})")
+            Logger.log("Kiroku cache write failed: ${it.message}")
         }
     }
 
     fun remove(kind: String, sourceKey: String, link: String) {
         fileFor(kind, sourceKey, link)?.delete()
+    }
+
+    fun usedBytes(kind: String? = null): Long {
+        val context = currContext() ?: return 0L
+        val root = File(context.filesDir, ROOT_DIR)
+        val dir = if (kind == null) root else File(root, kind)
+        return runCatching {
+            dir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+        }.getOrDefault(0L)
+    }
+
+    fun clear(kind: String? = null) {
+        val context = currContext() ?: return
+        val root = File(context.filesDir, ROOT_DIR)
+        val dir = if (kind == null) root else File(root, kind)
+        runCatching { dir.deleteRecursively() }
     }
 
     private fun prune(kind: String) {

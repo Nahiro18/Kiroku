@@ -9,13 +9,6 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-/**
- * Lista de episodios guardada en disco por fuente + anime.
- *
- * Igual que [KirokuChapterCache]: se pinta lo guardado al instante y la fuente
- * se refresca detrás. No guarda datos de reproducción (extractores, selección
- * de servidor/subtítulo), solo lo que sirve para listar.
- */
 object KirokuEpisodeCache {
 
     private const val KIND = "episodes"
@@ -64,7 +57,7 @@ object KirokuEpisodeCache {
             }
             episodes.takeIf { it.isNotEmpty() }
         }.onFailure {
-            Logger.log("Kiroku cache: episodios ilegibles (${it.message})")
+            Logger.log("Kiroku cache episodes unreadable: ${it.message}")
         }.getOrNull()
     }
 
@@ -77,13 +70,17 @@ object KirokuEpisodeCache {
         runCatching {
             KirokuCacheFile.write(KIND, sourceKey, link, json.encodeToString(payload))
         }.onFailure {
-            Logger.log("Kiroku cache: no se pudieron guardar episodios (${it.message})")
+            Logger.log("Kiroku cache episodes not saved: ${it.message}")
         }
     }
 
     fun invalidate(sourceKey: String, link: String) {
         KirokuCacheFile.remove(KIND, sourceKey, link)
     }
+
+    fun usedBytes(): Long = KirokuCacheFile.usedBytes(KIND)
+
+    fun clear() = KirokuCacheFile.clear(KIND)
 
     private fun Episode.toRow(): Row {
         val source = sEpisode
@@ -99,11 +96,11 @@ object KirokuEpisodeCache {
             watched = watched,
             maxLength = maxLength,
             extra = extra?.takeIf { it.isNotEmpty() },
-            sourceName = runCatching { source?.name }.getOrNull() ?: "",
-            sourceUrl = runCatching { source?.url }.getOrNull() ?: link ?: "",
-            sourceNumber = runCatching { source?.episode_number }.getOrNull() ?: -1f,
-            sourceScanlator = runCatching { source?.scanlator }.getOrNull(),
-            sourceDate = runCatching { source?.date_upload }.getOrNull() ?: 0L,
+            sourceName = source?.name ?: "",
+            sourceUrl = source?.url ?: link ?: "",
+            sourceNumber = source?.episode_number ?: -1f,
+            sourceScanlator = source?.scanlator,
+            sourceDate = source?.date_upload ?: 0L,
         )
     }
 

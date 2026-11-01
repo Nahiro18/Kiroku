@@ -29,14 +29,11 @@ data class ImageData(
     ): Bitmap? {
         return withContext(Dispatchers.IO) {
             try {
-                // Fetch the image
                 val response = httpSource.getImage(page)
                 Logger.log("Response: ${response.code} - ${response.message}")
 
-                // Leer el cuerpo completo permite medir la imagen antes de decodificar
                 val bytes = response.body.bytes()
 
-                // Convertir bytes a Bitmap (con muestreo si se pidió un límite)
                 val bitmap = if (maxPixels > 0L) {
                     KirokuImageDecoder.decode(bytes, maxPixels)
                 } else {
@@ -45,7 +42,6 @@ data class ImageData(
 
                 return@withContext bitmap
             } catch (e: Exception) {
-                // Handle any exceptions
                 Logger.log("An error occurred: ${e.message}")
                 snackString("An error occurred: ${e.message}")
                 return@withContext null

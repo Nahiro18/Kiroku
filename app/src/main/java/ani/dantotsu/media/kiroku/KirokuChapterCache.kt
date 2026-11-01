@@ -9,13 +9,6 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 
-/**
- * Lista de capítulos guardada en disco por fuente + manga.
- *
- * Sirve para pintar el manga al instante (lo que ya teníamos) mientras la
- * fuente se consulta de nuevo en segundo plano. Si algo del guardado no se
- * puede reconstruir, se descarta y se usa la respuesta fresca.
- */
 object KirokuChapterCache {
 
     private const val KIND = "chapters"
@@ -62,7 +55,7 @@ object KirokuChapterCache {
             }
             chapters.takeIf { it.isNotEmpty() }
         }.onFailure {
-            Logger.log("Kiroku cache: capítulos ilegibles (${it.message})")
+            Logger.log("Kiroku cache chapters unreadable: ${it.message}")
         }.getOrNull()
     }
 
@@ -75,13 +68,17 @@ object KirokuChapterCache {
         runCatching {
             KirokuCacheFile.write(KIND, sourceKey, link, json.encodeToString(payload))
         }.onFailure {
-            Logger.log("Kiroku cache: no se pudieron guardar capítulos (${it.message})")
+            Logger.log("Kiroku cache chapters not saved: ${it.message}")
         }
     }
 
     fun invalidate(sourceKey: String, link: String) {
         KirokuCacheFile.remove(KIND, sourceKey, link)
     }
+
+    fun usedBytes(): Long = KirokuCacheFile.usedBytes(KIND)
+
+    fun clear() = KirokuCacheFile.clear(KIND)
 
     private fun MangaChapter.toRow(): Row {
         val source = sChapter
@@ -93,12 +90,12 @@ object KirokuChapterCache {
             scanlator = scanlator,
             date = date,
             progress = progress,
-            sourceName = runCatching { source.name }.getOrDefault(""),
-            sourceUrl = runCatching { source.url }.getOrDefault(link),
-            sourceNumber = runCatching { source.chapter_number }.getOrDefault(-1f),
-            sourceScanlator = runCatching { source.scanlator }.getOrNull(),
-            sourceDate = runCatching { source.date_upload }.getOrDefault(0L),
-            sourceMemo = runCatching { source.memo.toString() }.getOrNull(),
+            sourceName = source.name,
+            sourceUrl = source.url,
+            sourceNumber = source.chapter_number,
+            sourceScanlator = source.scanlator,
+            sourceDate = source.date_upload,
+            sourceMemo = source.memo.toString(),
         )
     }
 
@@ -112,12 +109,8 @@ object KirokuChapterCache {
             date_upload = sourceDate
         }
         sourceMemo?.let { text ->
-            runCatching {
-                json.parseToJsonElement(text).jsonObject
-            }.onSuccess { source.memo = it }
-                .onFailure {
-                    // memo no es un objeto JSON válido: se deja el vacío
-                }
+            runCatching { json.parseToJsonElement(text).jsonObject }
+                .onSuccess { source.memo = it }
         }
         return MangaChapter(
             number = number,

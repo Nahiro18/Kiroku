@@ -1124,4 +1124,12 @@ Non quae tempore quo provident laudantium qui illo dolor vel quia dolor et exerc
     <string name="supporter">Supporter</string>
 
     <string name="MySnackBarText">MySnackBarText</string>
+
+    <string name="storage">Storage</string>
+    <string name="storage_desc">Review and free the space used by cached chapters, episodes and images</string>
+    <string name="storage_chapters">Manga chapters</string>
+    <string name="storage_episodes">Anime episodes</string>
+    <string name="storage_images">Images</string>
+    <string name="storage_empty">Nothing stored</string>
+    <string name="storage_cleared">Space freed</string>
 </resources>

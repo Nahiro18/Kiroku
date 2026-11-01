@@ -3,13 +3,6 @@ package ani.dantotsu.others
 import android.os.Handler
 import android.os.Looper
 
-/**
- * Ejecuta una acción después de un retraso, reiniciando la cuenta si se vuelve
- * a pedir antes de que termine.
- *
- * Usa el Handler del hilo principal en vez de crear un `Timer` (y su hilo)
- * por cada gesto. Con gestos rápidos eso generaba cientos de hilos.
- */
 class ResettableTimer {
 
     private val handler = Handler(Looper.getMainLooper())
