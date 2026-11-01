@@ -154,7 +154,7 @@ object YoloModelManager {
                     }
 
                     if (success) {
-                        PrefManager.setCustomVal(getModelInfo(model).prefKey, targetFile.absolutePath)
+                        PrefManager.setCustomVal(info.prefKey, targetFile.absolutePath)
                         Logger.log("YOLO ${model.name} downloaded: ${targetFile.length()} bytes")
                         true
                     } else {
@@ -176,35 +176,39 @@ object YoloModelManager {
     private fun downloadFile(url: String, targetFile: File, expectedSizeMB: Double, onProgress: ((Double) -> Unit)?): Boolean {
         var currentUrl = url
         var redirectCount = 0
+        var success = false
 
-        while (redirectCount < 5) {
+        while (redirectCount < 5 && !success) {
             val connection = URL(currentUrl).openConnection() as HttpURLConnection
-            connection.connectTimeout = 30000
-            connection.readTimeout = 180000
-            connection.requestMethod = "GET"
-            connection.addRequestProperty("User-Agent", "Kiroku/1.0")
-            connection.instance.followRedirects = false
+            try {
+                connection.connectTimeout = 30000
+                connection.readTimeout = 180000
+                connection.requestMethod = "GET"
+                connection.addRequestProperty("User-Agent", "Kiroku/1.0")
+                connection.instance.followRedirects = false
 
-            val responseCode = connection.responseCode
-            if (responseCode == 200) {
-                val contentLength = connection.contentLengthLong
-                if (contentLength <= 0) return false
+                val responseCode = connection.responseCode
+                if (responseCode == 200) {
+                    val contentLength = connection.contentLengthLong
+                    if (contentLength <= 0) return false
 
-                connection.inputStream.use { input ->
-                    FileOutputStream(targetFile).use { output ->
-                        val buffer = ByteArray(16384)
-                        var total = 0L
-                        var len: Int
-                        while (input.read(buffer).also { len = it } != -1) {
-                            output.write(buffer, 0, len)
-                            total += len
-                            if (contentLength > 0) {
-                                onProgress?.invoke((total.toDouble() / connection.contentLengthLong) * 100)
+                    connection.inputStream.use { input ->
+                        FileOutputStream(targetFile).use { output ->
+                            val buffer = ByteArray(16384)
+                            var total = 0L
+                            var len: Int
+                            while (input.read(buffer).also { len = it } != -1) {
+                                output.write(buffer, 0, len)
+                                total += len
+                                if (contentLength > 0) {
+                                    onProgress?.invoke((total.toDouble() / connection.contentLengthLong) * 100)
+                                }
                             }
                         }
                     }
 
-                    return targetFile.exists() && targetFile.length() > 0
+                    success = targetFile.exists() && targetFile.length() > 0
+                    return success
                 } else if (responseCode == 301 || responseCode == 302 || responseCode == 303 || responseCode == 307 || responseCode == 308) {
                     val redirectUrl = connection.getHeaderField("Location")
                     if (redirectUrl != null && redirectCount < 5) {
@@ -214,7 +218,6 @@ object YoloModelManager {
                         continue
                     }
                 }
-                Logger.log("Download failed with response code: ${connection.responseCode}")
                 return false
             } catch (e: Exception) {
                 Logger.log("Download error: ${e.message}")
