@@ -16,50 +16,101 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 object YoloModelManager {
 
-    private const val MODEL_NAME = "yolov8n_seg.tflite"
-    private const val MODEL_URL = "https://huggingface.co/STMicroelectronics/yolov8n_seg/resolve/main/yolov8n_seg.tflite"
-    private const val MODEL_SIZE_MB = 6.2
-    private const val PREF_KEY_DOWNLOADED = "yolo_model_downloaded"
-    private const val PREF_KEY_PATH = "yolo_model_path"
+    private const val V11_MODEL_NAME = "yolov11n_seg.tflite"
+    private const val V8_MODEL_NAME = "yolov8n_seg.tflite"
+    private const val V11_URL = "https://huggingface.co/EdgeFirst/yolo11-seg/resolve/main/tflite/yolo11n-seg-int8.tflite"
+    private const val V8_URL = "https://huggingface.co/EdgeFirst/yolov8-seg/resolve/main/tflite/yolov8n-seg-int8.tflite"
+    private const val V11_SIZE_MB = 3.2
+    private const val V8_SIZE_MB = 3.7
+
+    private const val PREF_V11_PATH = "yolo_v11_path"
+    private const val PREF_V8_PATH = "yolo_v8_path"
+    private const val PREF_SELECTED_MODEL = "yolo_selected_model"
+    private const val PREF_SELECTED_DELEGATE = "yolo_selected_delegate"
+
+    enum class Model { V11, V8 }
+    enum class Delegate { GPU, CPU }
 
     private val lock = Mutex()
     private val isDownloading = AtomicBoolean(false)
-    private var modelFile: File? = null
 
-    fun isDownloaded(): Boolean {
-        val path = PrefManager.getCustomVal(PREF_KEY_PATH, "")
-        if (path.isBlank()) return false
-        val file = File(path)
-        return file.exists() && file.length() > 0
-    }
-
-    fun getModelPath(): String? {
-        return if (isDownloaded()) PrefManager.getCustomVal(PREF_KEY_PATH, "") else null
-    }
-
-    fun getModelSizeMB(): Double = MODEL_SIZE_MB
-
-    fun getModelFile(): File? {
-        if (modelFile != null && modelFile!!.exists()) return modelFile
-        val path = getModelPath() ?: return null
-        val file = File(path)
-        if (file.exists()) {
-            modelFile = file
-            return file
+    fun getSelectedModel(): Model {
+        return PrefManager.getCustomVal(PREF_SELECTED_MODEL, "V11").let {
+            Model.valueOf(it)
         }
-        return null
+    }
+
+    fun setSelectedModel(model: Model) {
+        PrefManager.setCustomVal(PREF_SELECTED_MODEL, model.name)
+    }
+
+    fun getSelectedDelegate(): Delegate {
+        return PrefManager.getCustomVal(PREF_SELECTED_DELEGATE, "GPU").let {
+            Delegate.valueOf(it)
+        }
+    }
+
+    fun setSelectedDelegate(delegate: Delegate) {
+        PrefManager.setCustomVal(PREF_SELECTED_DELEGATE, delegate.name)
+    }
+
+    fun isModelDownloaded(model: Model): Boolean {
+        val path = getModelPath(model)
+        return path != null && File(path).exists() && File(path).length() > 0
+    }
+
+    fun getModelPath(model: Model): String? {
+        val pref = if (model == Model.V11) PREF_V11_PATH else PREF_V8_PATH
+        val path = PrefManager.getCustomVal(pref, "")
+        return if (path.isNotBlank() && File(path).exists()) path else null
+    }
+
+    fun getModelSizeMB(model: Model): Double = if (model == Model.V11) V11_SIZE_MB else V8_SIZE_MB
+
+    fun getModelFile(model: Model): File? {
+        val path = getModelPath(model) ?: return null
+        val file = File(path)
+        return if (file.exists()) file else null
     }
 
     fun isCompatible(): Boolean {
         return android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P
     }
 
-    suspend fun downloadModel(onProgress: ((Double) -> Unit)? = null): Boolean {
+    fun deleteModel(model: Model): Boolean {
+        val acquired = lock.tryLock()
+        if (!acquired) return false
+        return try {
+            val pref = if (model == Model.V11) PREF_V11_PATH else PREF_V8_PATH
+            val path = PrefManager.getCustomVal(pref, "")
+            if (path.isNotBlank()) {
+                File(path).delete()
+            }
+            PrefManager.removeCustomVal(pref)
+            true
+        } finally {
+            lock.unlock()
+        }
+    }
+
+    fun deleteAllModels(): Boolean {
+        val acquired = lock.tryLock()
+        if (!acquired) return false
+        return try {
+            deleteModel(Model.V11)
+            deleteModel(Model.V8)
+            true
+        } finally {
+            lock.unlock()
+        }
+    }
+
+    suspend fun downloadModel(model: Model, onProgress: ((Double) -> Unit)? = null): Boolean {
         return withContext(Dispatchers.IO) {
             val acquired = lock.tryLock()
             if (!acquired) return@withContext false
             try {
-                if (isDownloaded()) return@withContext true
+                if (isModelDownloaded(model)) return@withContext true
                 if (isDownloading.get()) return@withContext false
 
                 isDownloading.set(true)
@@ -69,11 +120,15 @@ object YoloModelManager {
                     val targetDir = File(context.filesDir, "models")
                     if (!targetDir.exists()) targetDir.mkdirs()
 
-                    val targetFile = File(targetDir, MODEL_NAME)
-                    val url = URL(MODEL_URL)
-                    val connection = url.openConnection()
+                    val (fileName, url, sizeMB) = if (model == Model.V11) {
+                        V11_MODEL_NAME to V11_URL to V11_SIZE_MB
+                    } else {
+                        V8_MODEL_NAME to V8_URL to V8_SIZE_MB
+                    }
+                    val targetFile = File(targetDir, fileName)
+                    val connection = URL(url).openConnection()
                     connection.connectTimeout = 30000
-                    connection.readTimeout = 60000
+                    connection.readTimeout = 120000
                     val contentLength = connection.contentLength.toLong()
 
                     connection.inputStream.use { input ->
@@ -92,17 +147,16 @@ object YoloModelManager {
                     }
 
                     if (targetFile.exists() && targetFile.length() > 0) {
-                        PrefManager.setCustomVal(PREF_KEY_PATH, targetFile.absolutePath)
-                        PrefManager.setCustomVal(PREF_KEY_DOWNLOADED, true)
-                        modelFile = targetFile
-                        Logger.log("YOLO model downloaded successfully: ${targetFile.length()} bytes")
+                        val pref = if (model == Model.V11) PREF_V11_PATH else PREF_V8_PATH
+                        PrefManager.setCustomVal(pref, targetFile.absolutePath)
+                        Logger.log("YOLO ${model.name} downloaded: ${targetFile.length()} bytes")
                         true
                     } else {
                         targetFile.delete()
                         false
                     }
                 } catch (e: Exception) {
-                    Logger.log("YOLO model download failed: ${e.message}")
+                    Logger.log("YOLO ${model.name} download failed: ${e.message}")
                     false
                 } finally {
                     isDownloading.set(false)
@@ -110,23 +164,6 @@ object YoloModelManager {
             } finally {
                 lock.unlock()
             }
-        }
-    }
-
-    fun deleteModel(): Boolean {
-        val acquired = lock.tryLock()
-        if (!acquired) return false
-        return try {
-            val path = PrefManager.getCustomVal(PREF_KEY_PATH, "")
-            if (path.isNotBlank()) {
-                File(path).delete()
-            }
-            PrefManager.removeCustomVal(PREF_KEY_PATH)
-            PrefManager.removeCustomVal(PREF_KEY_DOWNLOADED)
-            modelFile = null
-            true
-        } finally {
-            lock.unlock()
         }
     }
 

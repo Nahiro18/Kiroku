@@ -94,25 +94,39 @@ class ImageSearchActivity : AppCompatActivity() {
 
     private fun runYoloSegmentation(bitmap: Bitmap) {
         lifecycleScope.launch(Dispatchers.IO) {
-            val modelPath = YoloModelManager.getModelPath() ?: return@launch
-            val modelFile = File(modelPath)
-            if (!modelFile.exists()) {
+            val selectedModel = YoloModelManager.getSelectedModel()
+            val selectedDelegate = YoloModelManager.getSelectedDelegate()
+
+            val fallbackChain = YoloSegmenter.getFallbackChain(this@ImageSearchActivity, selectedModel, selectedDelegate)
+
+            for ((model, delegate) in fallbackChain) {
+                val modelPath = YoloModelManager.getModelPath(model)
+                if (modelPath == null) continue
+
+                val modelFile = File(modelPath)
+                if (!modelFile.exists()) continue
+
+                val segmenter = withContext(Dispatchers.Main) {
+                    YoloSegmenter.getInstance(this@ImageSearchActivity, modelFile, model, delegate)
+                } ?: continue
+
+                val results = segmenter.segment(bitmap)
+
                 withContext(Dispatchers.Main) {
-                    toast("YOLO model not found")
-                    useYolo = false
-                    binding.yoloToggle.isChecked = false
+                    if (model != selectedModel || delegate != selectedDelegate) {
+                        val modelName = if (model == YoloModelManager.Model.V11) "YOLOv11" else "YOLOv8"
+                        val delegateName = if (delegate == YoloModelManager.Delegate.GPU) "GPU" else "CPU"
+                        toast("Using fallback: $modelName @ $delegateName")
+                    }
+                    yoloSegmenter = segmenter
+                    drawSegmentationOverlay(bitmap, results)
+                    return@launch
                 }
-                return@launch
             }
 
-            yoloSegmenter = withContext(Dispatchers.Main) {
-                YoloSegmenter.getInstance(this@ImageSearchActivity, modelFile)
-            } ?: return@launch
-
-            val results = yoloSegmenter!!.segment(bitmap)
-
             withContext(Dispatchers.Main) {
-                drawSegmentationOverlay(bitmap, results)
+                toast("All YOLO models failed, using original image")
+                binding.imagePreview.setImageBitmap(originalBitmap)
             }
         }
     }
@@ -138,7 +152,7 @@ class ImageSearchActivity : AppCompatActivity() {
         binding.yoloToggle.setOnCheckedChangeListener { _, isChecked ->
             useYolo = isChecked
             if (isChecked) {
-                if (YoloModelManager.isDownloaded()) {
+                if (YoloModelManager.isModelDownloaded(YoloModelManager.getSelectedModel())) {
                     runYoloSegmentation(originalBitmap!!)
                 } else {
                     binding.yoloToggle.isChecked = false
