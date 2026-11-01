@@ -238,7 +238,7 @@ class SettingsAddonActivity : AppCompatActivity() {
                                 } else {
                                     setImageResource(R.drawable.ic_download_24)
                                     setOnClickListener {
-                                        downloadYoloModel(itemView)
+                                        lifecycleScope.launch { downloadYoloModel(itemView) }
                                     }
                                 }
                             }
@@ -258,7 +258,7 @@ class SettingsAddonActivity : AppCompatActivity() {
         downloadAddonManager.removeListenerAction()
     }
 
-    private fun downloadYoloModel(itemView: ItemSettingsBinding) {
+    private suspend fun downloadYoloModel(itemView: ItemSettingsBinding) {
         if (YoloModelManager.isDownloadingNow()) return
 
         val job = Job()
@@ -275,25 +275,23 @@ class SettingsAddonActivity : AppCompatActivity() {
             }
         }
 
-        CoroutineScope(Dispatchers.Main).launch {
-            val success = YoloModelManager.downloadModel { progress ->
-                withContext(Dispatchers.Main) {
-                    if (isActive) {
-                        itemView.settingsDesc.text = getString(R.string.yolo_downloading, progress)
-                    }
+        val success = YoloModelManager.downloadModel { progress ->
+            withContext(Dispatchers.Main) {
+                if (isActive) {
+                    itemView.settingsDesc.text = getString(R.string.yolo_downloading, progress)
                 }
             }
-            withContext(Dispatchers.Main) {
-                job.cancel()
-                itemView.settingsIconRight.animate().cancel()
-                itemView.settingsIconRight.rotation = 0f
-                if (success) {
-                    itemView.settingsIconRight.setImageResource(R.drawable.ic_round_delete_24)
-                    itemView.settingsDesc.text = getString(R.string.yolo_downloaded)
-                } else {
-                    itemView.settingsIconRight.setImageResource(R.drawable.ic_download_24)
-                    itemView.settingsDesc.text = getString(R.string.yolo_download_failed)
-                }
+        }
+        withContext(Dispatchers.Main) {
+            job.cancel()
+            itemView.settingsIconRight.animate().cancel()
+            itemView.settingsIconRight.rotation = 0f
+            if (success) {
+                itemView.settingsIconRight.setImageResource(R.drawable.ic_round_delete_24)
+                itemView.settingsDesc.text = getString(R.string.yolo_downloaded)
+            } else {
+                itemView.settingsIconRight.setImageResource(R.drawable.ic_download_24)
+                itemView.settingsDesc.text = getString(R.string.yolo_download_failed)
             }
         }
     }
