@@ -8,7 +8,6 @@ import ani.dantotsu.util.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -57,14 +56,16 @@ object YoloModelManager {
 
     suspend fun downloadModel(onProgress: ((Double) -> Unit)? = null): Boolean {
         return withContext(Dispatchers.IO) {
-            lock.withLock {
-                if (isDownloaded()) return@withLock true
-                if (isDownloading.get()) return@withLock false
+            val acquired = lock.tryLock()
+            if (!acquired) return@withContext false
+            try {
+                if (isDownloaded()) return@withContext true
+                if (isDownloading.get()) return@withContext false
 
                 isDownloading.set(true)
-                val context = currContext() ?: return@withLock false
+                val context = currContext() ?: return@withContext false
 
-                return@withLock try {
+                return@withContext try {
                     val targetDir = File(context.filesDir, "models")
                     if (!targetDir.exists()) targetDir.mkdirs()
 
@@ -106,12 +107,16 @@ object YoloModelManager {
                 } finally {
                     isDownloading.set(false)
                 }
+            } finally {
+                lock.unlock()
             }
         }
     }
 
     fun deleteModel(): Boolean {
-        return lock.withLock {
+        val acquired = lock.tryLock()
+        if (!acquired) return false
+        try {
             val path = PrefManager.getCustomVal(PREF_KEY_PATH, "")
             if (path.isNotBlank()) {
                 File(path).delete()
@@ -120,6 +125,8 @@ object YoloModelManager {
             PrefManager.removeCustomVal(PREF_KEY_DOWNLOADED)
             modelFile = null
             true
+        } finally {
+            lock.unlock()
         }
     }
 

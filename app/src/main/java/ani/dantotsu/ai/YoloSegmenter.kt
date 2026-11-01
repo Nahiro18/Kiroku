@@ -3,7 +3,6 @@ package ani.dantotsu.ai
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.RectF
 import android.util.Log
@@ -61,7 +60,8 @@ class YoloSegmenter private constructor(
             inputBuffer.putFloat((pixel and 0xFF) / 255.0f)
         }
 
-        val outputShape = interpreter.getOutputTensor(0).shape
+        val outputTensor = interpreter.getOutputTensor(0)
+        val outputShape = outputTensor.shape
         val outputBuffer = ByteBuffer.allocateDirect(4 * outputShape[1] * outputShape[2] * outputShape[3])
             .order(ByteOrder.nativeOrder())
 

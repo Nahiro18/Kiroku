@@ -2,6 +2,7 @@ package ani.dantotsu.settings
 
 import android.content.Context
 import android.os.Bundle
+import android.view.View
 import android.view.ViewGroup
 import android.view.animation.LinearInterpolator
 import androidx.appcompat.app.AppCompatActivity
