@@ -35,7 +35,13 @@ class YoloSegmenter private constructor(
                     when (delegate) {
                         YoloModelManager.Delegate.GPU -> {
                             try {
-                                val gpuDelegate = GpuDelegate()
+                                val gpuOptions = GpuDelegate.Options().apply {
+                                    setPrecisionLossAllowed(true)
+                                    setInferencePriority1(GpuDelegate.Options.INFERENCE_PRIORITY_MIN_LATENCY)
+                                    setInferencePriority2(GpuDelegate.Options.INFERENCE_PRIORITY_MIN_MEMORY_USAGE)
+                                    setInferencePriority3(GpuDelegate.Options.INFERENCE_PRIORITY_MAX_PRECISION)
+                                }
+                                val gpuDelegate = GpuDelegate(gpuOptions)
                                 addDelegate(gpuDelegate)
                             } catch (e: Exception) {
                                 Log.w("YoloSegmenter", "GPU delegate failed, falling back to CPU: ${e.message}")
