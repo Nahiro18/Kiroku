@@ -116,7 +116,7 @@ object YoloModelManager {
     fun deleteModel(): Boolean {
         val acquired = lock.tryLock()
         if (!acquired) return false
-        try {
+        return try {
             val path = PrefManager.getCustomVal(PREF_KEY_PATH, "")
             if (path.isNotBlank()) {
                 File(path).delete()
