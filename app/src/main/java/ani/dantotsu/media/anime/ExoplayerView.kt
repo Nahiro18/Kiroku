@@ -66,6 +66,7 @@ import androidx.media3.common.C.TRACK_TYPE_TEXT
 import androidx.media3.common.C.TRACK_TYPE_VIDEO
 import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.trackselection.TrackSelectionParameters
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
@@ -2041,6 +2042,7 @@ class ExoplayerView :
 
         val items = mutableListOf<String>()
         val trackIndices = mutableListOf<Int>()
+        val groupIndices = mutableListOf<Int>()
 
         for (groupIndex in 0 until videoTrackGroups.length) {
             val group = videoTrackGroups.get(groupIndex)
@@ -2053,7 +2055,8 @@ class ExoplayerView :
                 val codec = format.sampleMimeType?.substringAfterLast("/")?.uppercase() ?: ""
                 val label = "$quality$bitrate ${if (codec.isNotBlank()) "($codec)" else ""}".trim()
                 items.add(label)
-                trackIndices.add(groupIndex)
+                trackIndices.add(trackIndex)
+                groupIndices.add(groupIndex)
             }
         }
 
@@ -2063,7 +2066,8 @@ class ExoplayerView :
             ?.getTrackGroups(TRACK_TYPE_VIDEO)
             ?.let { groups ->
                 for (g in 0 until groups.length) {
-                    val override = trackSelector.getSelectionOverride(g, TRACK_TYPE_VIDEO)
+                    val params = trackSelector.parameters
+                    val override = params.getTrackSelectionOverride(g, TRACK_TYPE_VIDEO)
                     if (override != null) return@let override.tracks.firstOrNull()
                 }
                 -1
@@ -2072,10 +2076,12 @@ class ExoplayerView :
         customAlertDialog().apply {
             setTitle(R.string.select_quality)
             singleChoiceItems(items.toTypedArray(), currentSelection) { index ->
-                val groupIndex = trackIndices[index]
-                val group = videoTrackGroups.get(groupIndex)
-                val override = TrackSelectionOverride(group.mediaTrackGroup, index)
-                trackSelector.setSelectionOverride(groupIndex, TRACK_TYPE_VIDEO, override)
+                val groupIndex = groupIndices[index]
+                val trackIndex = trackIndices[index]
+                val newParams = trackSelector.parameters.buildUpon()
+                    .setTrackSelectionOverride(groupIndex, TRACK_TYPE_VIDEO, listOf(trackIndex))
+                    .build()
+                trackSelector.setParameters(newParams)
             }
             setOnCancelListener { hideSystemBars() }
             show()
