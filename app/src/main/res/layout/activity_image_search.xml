@@ -26,7 +26,7 @@
             app:drawableTint="?attr/colorOnBackground" />
 
         <LinearLayout
-            android:id="@+id/yoloContainer"
+            android:id="@+id/aiContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
@@ -53,13 +53,13 @@
                 android:orientation="vertical">
 
                 <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/yoloToggle"
+                    android:id="@+id/aiToggle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:checked="false"
                     android:elegantTextHeight="true"
                     android:fontFamily="@font/poppins_bold"
-                    android:text="@string/use_yolo_segmentation"
+                    android:text="@string/ai_person_toggle"
                     android:textAlignment="viewStart"
                     android:textColor="?attr/colorOnBackground"
                     android:textSize="16sp"
@@ -69,13 +69,13 @@
                     app:thumbTint="@color/button_switch_track" />
 
                 <TextView
-                    android:id="@+id/yoloToggleDesc"
+                    android:id="@+id/aiToggleDesc"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
                     android:alpha="0.66"
                     android:fontFamily="@font/poppins_semi_bold"
-                    android:text="@string/yolo_toggle_desc"
+                    android:text="@string/ai_person_toggle_desc"
                     android:textColor="?attr/colorOnSurfaceVariant" />
             </LinearLayout>
         </LinearLayout>

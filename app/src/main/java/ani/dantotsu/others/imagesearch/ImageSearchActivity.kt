@@ -14,9 +14,9 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import ani.dantotsu.App.Companion.context
 import ani.dantotsu.R
-import ani.dantotsu.ai.SegmentationResult
-import ani.dantotsu.ai.YoloModelManager
-import ani.dantotsu.ai.YoloSegmenter
+import ani.dantotsu.ai.PersonDetection
+import ani.dantotsu.ai.PersonDetector
+import ani.dantotsu.ai.PersonModelManager
 import ani.dantotsu.connections.anilist.Anilist
 import ani.dantotsu.databinding.ActivityImageSearchBinding
 import ani.dantotsu.initActivity
@@ -30,12 +30,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
-import java.io.File
 
 class ImageSearchActivity : AppCompatActivity() {
     private lateinit var binding: ActivityImageSearchBinding
     private val viewModel: ImageSearchViewModel by viewModels()
-    private var useYolo = false
+    private var usePersonCrop = false
     private var originalBitmap: Bitmap? = null
     private var imageBytes: ByteArray? = null
     private var isSearching = false
@@ -76,36 +75,15 @@ class ImageSearchActivity : AppCompatActivity() {
         }
     }
 
-    private fun runYoloSegmentation(bitmap: Bitmap): List<SegmentationResult> {
-        val selectedModel = YoloModelManager.getSelectedModel()
-        val selectedDelegate = YoloModelManager.getSelectedDelegate()
-        val fallbackChain = YoloSegmenter.getFallbackChain(this, selectedModel, selectedDelegate)
-
-        for ((model, delegate) in fallbackChain) {
-            val modelPath = YoloModelManager.getModelPath(model) ?: continue
-            val modelFile = File(modelPath)
-            if (!modelFile.exists()) continue
-
-            val segmenter = YoloSegmenter.getInstance(this, modelFile, model, delegate) ?: continue
-            val results = runCatching { segmenter.segment(bitmap) }.getOrNull()
-            if (results == null) {
-                YoloSegmenter.release()
-                continue
-            }
-
-            if (model != selectedModel || delegate != selectedDelegate) {
-                val modelName = if (model == YoloModelManager.Model.V11) "YOLOv11" else "YOLOv8"
-                val delegateName = if (delegate == YoloModelManager.Delegate.GPU) "GPU" else "CPU"
-                runOnUiThread { toast(getString(R.string.yolo_fallback, modelName, delegateName)) }
-            }
-            return results
-        }
-        return emptyList()
+    private fun detectPerson(bitmap: Bitmap): List<PersonDetection> {
+        val modelFile = PersonModelManager.getModelFile() ?: return emptyList()
+        val detector = PersonDetector.create(modelFile) ?: return emptyList()
+        return detector.use { it.detect(bitmap) }
     }
 
-    private fun bestCrop(bitmap: Bitmap, results: List<SegmentationResult>): Bitmap? {
-        val best = results.maxByOrNull { it.confidence } ?: return null
-        val box = best.boundingBox
+    private fun bestCrop(bitmap: Bitmap, results: List<PersonDetection>): Bitmap? {
+        val best = results.firstOrNull() ?: return null
+        val box = best.box
         if (!box.left.isFinite() || !box.top.isFinite() || !box.right.isFinite() || !box.bottom.isFinite()) return null
         if (box.width() < 8f || box.height() < 8f) return null
 
@@ -153,26 +131,25 @@ class ImageSearchActivity : AppCompatActivity() {
         val bitmap = originalBitmap ?: return
         isSearching = true
         binding.searchButton.isEnabled = false
-        binding.yoloToggle.isEnabled = false
+        binding.aiToggle.isEnabled = false
         binding.progressBar.visibility = View.VISIBLE
 
-        if (!useYolo) {
+        if (!usePersonCrop) {
             sendSearch(imageBytes)
             return
         }
 
         lifecycleScope.launch(Dispatchers.IO) {
-            val results = runYoloSegmentation(bitmap)
-            val crop = if (results.isNotEmpty()) bestCrop(bitmap, results) else null
+            val results = detectPerson(bitmap)
+            val crop = bestCrop(bitmap, results)
             val searchBytes = if (crop != null) bitmapToJpeg(crop) else imageBytes
-            YoloSegmenter.release()
 
             runOnUiThread {
                 if (crop != null) {
                     binding.imagePreview.setImageBitmap(crop)
-                    toast(getString(R.string.yolo_found_regions, results.size))
+                    toast(getString(R.string.ai_person_found, results.size))
                 } else {
-                    toast(getString(R.string.yolo_no_regions))
+                    toast(getString(R.string.ai_person_no_match))
                 }
             }
             sendSearch(searchBytes)
@@ -195,43 +172,39 @@ class ImageSearchActivity : AppCompatActivity() {
     private fun finishSearch() {
         isSearching = false
         binding.searchButton.isEnabled = true
-        binding.yoloToggle.isEnabled = true
+        binding.aiToggle.isEnabled = true
         binding.progressBar.visibility = View.GONE
-        if (useYolo) {
-            useYolo = false
-            binding.yoloToggle.isChecked = false
+        if (usePersonCrop) {
+            usePersonCrop = false
+            binding.aiToggle.isChecked = false
         }
     }
 
     private fun displayImage(bitmap: Bitmap) {
         binding.imagePreview.setImageBitmap(bitmap)
         binding.imagePreview.visibility = View.VISIBLE
-        binding.yoloContainer.visibility = View.VISIBLE
+        binding.aiContainer.visibility = View.VISIBLE
         binding.searchButton.isEnabled = true
-        binding.yoloToggle.isEnabled = true
+        binding.aiToggle.isEnabled = true
         binding.progressBar.visibility = View.GONE
 
-        updateYoloToggleLabel()
+        updateToggleLabel()
 
-        binding.yoloToggle.setOnCheckedChangeListener(null)
-        binding.yoloToggle.isChecked = useYolo
-        binding.yoloToggle.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked && !YoloModelManager.isModelDownloaded(YoloModelManager.getSelectedModel())) {
-                binding.yoloToggle.isChecked = false
-                useYolo = false
-                toast(getString(R.string.yolo_model_missing))
+        binding.aiToggle.setOnCheckedChangeListener(null)
+        binding.aiToggle.isChecked = usePersonCrop
+        binding.aiToggle.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked && !PersonModelManager.isDownloaded()) {
+                binding.aiToggle.isChecked = false
+                usePersonCrop = false
+                toast(getString(R.string.ai_person_model_missing))
             } else {
-                useYolo = isChecked
+                usePersonCrop = isChecked
             }
         }
     }
 
-    private fun updateYoloToggleLabel() {
-        val modelName = when (YoloModelManager.getSelectedModel()) {
-            YoloModelManager.Model.V11 -> "YOLOv11n-seg"
-            YoloModelManager.Model.V8 -> "YOLOv8n-seg"
-        }
-        binding.yoloToggle.text = getString(R.string.use_yolo_segmentation_with_model, modelName)
+    private fun updateToggleLabel() {
+        binding.aiToggle.text = getString(R.string.ai_person_toggle)
     }
 
     private fun pickImage() {
@@ -239,17 +212,16 @@ class ImageSearchActivity : AppCompatActivity() {
         binding.recyclerView.adapter = null
         binding.imagePreview.setImageBitmap(null)
         binding.imagePreview.visibility = View.GONE
-        binding.yoloContainer.visibility = View.GONE
+        binding.aiContainer.visibility = View.GONE
         binding.progressBar.visibility = View.GONE
-        binding.yoloToggle.setOnCheckedChangeListener(null)
-        binding.yoloToggle.isChecked = false
-        useYolo = false
+        binding.aiToggle.setOnCheckedChangeListener(null)
+        binding.aiToggle.isChecked = false
+        usePersonCrop = false
         isSearching = false
         binding.searchButton.isEnabled = true
-        binding.yoloToggle.isEnabled = true
+        binding.aiToggle.isEnabled = true
         originalBitmap = null
         imageBytes = null
-        YoloSegmenter.release()
         imageSelectionLauncher.launch("image/*")
     }
 
@@ -271,8 +243,8 @@ class ImageSearchActivity : AppCompatActivity() {
             result?.let { displayResult(it) }
         }
 
-        binding.yoloToggle.isChecked = false
-        useYolo = false
+        binding.aiToggle.isChecked = false
+        usePersonCrop = false
         binding.progressBar.visibility = View.GONE
         binding.searchButton.isEnabled = true
     }
@@ -311,7 +283,6 @@ class ImageSearchActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        YoloSegmenter.release()
         originalBitmap = null
         imageBytes = null
     }
