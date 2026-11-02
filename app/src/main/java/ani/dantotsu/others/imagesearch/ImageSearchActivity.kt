@@ -152,18 +152,24 @@ class ImageSearchActivity : AppCompatActivity() {
                     toast(getString(R.string.ai_person_no_match))
                 }
             }
-            sendSearch(cropBytes, imageBytes)
+            if (cropBytes != null) {
+                sendSearch(cropBytes, imageBytes)
+            } else {
+                sendSearch(imageBytes, null)
+            }
         }
     }
 
     private fun sendSearch(bytes: ByteArray?, fallbackBytes: ByteArray?) {
         if (bytes == null || bytes.isEmpty()) {
-            finishSearch()
-            toast(getString(R.string.error_loading_image))
+            runOnUiThread {
+                finishSearch()
+                toast(getString(R.string.error_loading_image))
+            }
             return
         }
 
-        val streams = if (fallbackBytes != null && fallbackBytes.isNotEmpty()) {
+        val streams: Array<ByteArrayInputStream> = if (fallbackBytes != null && fallbackBytes.isNotEmpty()) {
             arrayOf(ByteArrayInputStream(bytes), ByteArrayInputStream(fallbackBytes))
         } else {
             arrayOf(ByteArrayInputStream(bytes))
