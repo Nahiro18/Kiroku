@@ -2035,27 +2035,27 @@ class ExoplayerView :
     }
 
     private fun showQualitySelector() {
-        val trackInfo = trackSelector.currentMappedTrackInfo ?: return
-        val videoTrackGroups = trackInfo.getTrackGroups(TRACK_TYPE_VIDEO)
-        if (videoTrackGroups.length == 0) return
+        val videoTracks = exoPlayer.currentTracks.groups.filter {
+            it.type == TRACK_TYPE_VIDEO && it.isSupported(true)
+        }
+        if (videoTracks.isEmpty()) return
 
         val items = mutableListOf<String>()
-        val trackIndices = mutableListOf<Int>()
-        val groupIndices = mutableListOf<Int>()
+        val selections = mutableListOf<Pair<Tracks.Group, Int>>()
 
-        for (groupIndex in 0 until videoTrackGroups.length) {
-            val group = videoTrackGroups.get(groupIndex)
+        videoTracks.forEach { group ->
             for (trackIndex in 0 until group.length) {
-                val format = group.getFormat(trackIndex)
-                val quality = if (format.height > 0) "${format.height}p"
-                else if (format.width > 0) "${format.width}p"
-                else "Unknown"
+                val format = group.getTrackFormat(trackIndex)
+                val quality = when {
+                    format.height > 0 -> "${format.height}p"
+                    format.width > 0 -> "${format.width}p"
+                    else -> format.sampleMimeType?.substringAfterLast("/")?.uppercase() ?: "Auto"
+                }
                 val bitrate = if (format.bitrate > 0) " ~${format.bitrate / 1000} kbps" else ""
                 val codec = format.sampleMimeType?.substringAfterLast("/")?.uppercase() ?: ""
-                val label = "$quality$bitrate ${if (codec.isNotBlank()) "($codec)" else ""}".trim()
-                items.add(label)
-                trackIndices.add(trackIndex)
-                groupIndices.add(groupIndex)
+                val codecLabel = if (codec.isNotBlank()) " ($codec)" else ""
+                items.add("$quality$bitrate$codecLabel".trim())
+                selections.add(group to trackIndex)
             }
         }
 
@@ -2063,17 +2063,16 @@ class ExoplayerView :
 
         customAlertDialog().apply {
             setTitle(R.string.select_quality)
-            singleChoiceItems(items.toTypedArray(), -1) { index ->
-                val groupIndex = groupIndices[index]
-                val trackIndex = trackIndices[index]
-                val trackGroup = videoTrackGroups.get(groupIndex)
-                val override = TrackSelectionOverride(trackGroup, trackIndex)
+            singleChoiceItems(items.toTypedArray()) { index ->
+                val (group, trackIndex) = selections[index]
                 exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters
                     .buildUpon()
-                    .setOverrideForType(override)
+                    .setOverrideForType(
+                        TrackSelectionOverride(group.mediaTrackGroup, trackIndex)
+                    )
                     .build()
             }
-            setOnCancelListener { hideSystemBars() }
+            onDismiss { hideSystemBars() }
             show()
         }
     }
@@ -2380,7 +2379,7 @@ class ExoplayerView :
                 }
             }
         }
-        exoQuality.isVisible = videoTracks.any { it.length > 1 }
+        exoQuality.isVisible = videoTracks.sumOf { it.length } > 1
 
     }
 

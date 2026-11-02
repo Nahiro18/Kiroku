@@ -167,8 +167,7 @@
     <string name="not_supported">%1$s is not supported!</string>
     <string name="server_selector">Select Server</string>
     <string name="select_quality">Select Quality</string>
-    <string name="multi_quality">Multi Quality</string>
-    <string name="unknown_quality">Unknown Quality</string>
+    <string name="unknown_server">Unknown Server</string>
     <string name="auto_select_server">Auto Selecting Server</string>
     <string name="make_default">Make Default</string>
     <string name="filler">Filler</string>

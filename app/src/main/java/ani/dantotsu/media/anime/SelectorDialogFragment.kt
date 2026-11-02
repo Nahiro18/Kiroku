@@ -374,6 +374,35 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
         episode?.extractorCallback = null
     }
 
+    private fun VideoExtractor.displayServerName(): String {
+        val rawName = server.name.trim()
+        if (rawName.isNotEmpty() && GENERIC_SERVER_NAMES.none { rawName.equals(it, true) }) {
+            return rawName
+        }
+
+        val host = runCatching {
+            Uri.parse(server.embed.url).host
+                ?: videos.firstOrNull()?.file?.url?.let { Uri.parse(it).host }
+        }.getOrNull()
+
+        val hostLabel = host
+            ?.removePrefix("www.")
+            ?.substringBefore('.')
+            ?.takeIf { it.isNotBlank() }
+            ?.replaceFirstChar { it.uppercase() }
+
+        return hostLabel ?: getString(R.string.unknown_server)
+    }
+
+    private fun VideoExtractor.videoLabel(video: Video): String {
+        if (videos.size <= 1) return displayServerName()
+
+        return when {
+            video.quality != null && video.quality > 0 -> "${video.quality}p"
+            else -> video.format.name
+        }
+    }
+
     private inner class ExtractorAdapter :
         RecyclerView.Adapter<ExtractorAdapter.StreamViewHolder>() {
         val links = mutableListOf<VideoExtractor>()
@@ -388,12 +417,13 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
 
         override fun onBindViewHolder(holder: StreamViewHolder, position: Int) {
             val extractor = links[position]
-            holder.binding.streamName.text = extractor.server.name
-            holder.binding.streamName.visibility = View.VISIBLE
+            val hasMultipleVideos = extractor.videos.size > 1
+
+            holder.binding.streamName.text = extractor.displayServerName()
+            holder.binding.streamName.isVisible = hasMultipleVideos
 
             holder.binding.streamRecyclerView.layoutManager = LinearLayoutManager(requireContext())
             holder.binding.streamRecyclerView.adapter = VideoAdapter(extractor)
-
         }
 
         override fun getItemCount(): Int = links.size
@@ -677,12 +707,7 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
             }
             binding.urlNote.visibility = View.VISIBLE
             binding.urlNote.text = video.format.name
-            // Show video quality based on video.quality and video.format
-            binding.urlQuality.text = when {
-                video.format == VideoType.M3U8 -> getString(R.string.multi_quality)
-                video.quality != null -> "${video.quality}p"
-                else -> getString(R.string.unknown_quality)
-            }
+            binding.urlQuality.text = extractor.videoLabel(video)
         }
 
         private fun broadcastDownloadStarted(episodeNumber: String, activity: Activity) {
@@ -730,6 +755,15 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
     }
 
     companion object {
+        private val GENERIC_SERVER_NAMES = setOf(
+            "multi quality",
+            "multi-quality",
+            "unknown",
+            "unknown quality",
+            "default",
+            "auto",
+        )
+
         fun newInstance(
             server: String? = null,
             la: Boolean = true,
