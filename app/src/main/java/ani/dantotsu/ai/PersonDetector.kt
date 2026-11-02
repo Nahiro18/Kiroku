@@ -70,8 +70,11 @@ class PersonDetector private constructor(
         output.get(raw)
 
         val params = interpreter.getOutputTensor(0).quantizationParams()
-        val outScale = params.scale.firstOrNull() ?: 0f
-        val outZero = params.zeroPoint.firstOrNull() ?: 0
+        val scales = params.scale
+        val zeroPoints = params.zeroPoint
+        if (scales == null || zeroPoints == null || scales.isEmpty() || zeroPoints.isEmpty()) return emptyList()
+        val outScale = scales[0]
+        val outZero = zeroPoints[0]
         if (outScale <= 0f) return emptyList()
 
         val shape = interpreter.getOutputTensor(0).shape()
