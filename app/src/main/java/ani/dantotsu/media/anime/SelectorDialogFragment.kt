@@ -388,8 +388,8 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
 
         override fun onBindViewHolder(holder: StreamViewHolder, position: Int) {
             val extractor = links[position]
-            holder.binding.streamName.text = ""//extractor.server.name
-            holder.binding.streamName.visibility = View.GONE
+            holder.binding.streamName.text = extractor.server.name
+            holder.binding.streamName.visibility = View.VISIBLE
 
             holder.binding.streamRecyclerView.layoutManager = LinearLayoutManager(requireContext())
             holder.binding.streamRecyclerView.adapter = VideoAdapter(extractor)
@@ -677,7 +677,12 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
             }
             binding.urlNote.visibility = View.VISIBLE
             binding.urlNote.text = video.format.name
-            binding.urlQuality.text = extractor.server.name
+            // Show video quality based on video.quality and video.format
+            binding.urlQuality.text = when {
+                video.format == VideoType.M3U8 -> getString(R.string.multi_quality)
+                video.quality != null -> "${video.quality}p"
+                else -> getString(R.string.unknown_quality)
+            }
         }
 
         private fun broadcastDownloadStarted(episodeNumber: String, activity: Activity) {
