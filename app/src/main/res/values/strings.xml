@@ -1169,4 +1169,5 @@ Non quae tempore quo provident laudantium qui illo dolor vel quia dolor et exerc
     <string name="restart_app">Restart App</string>
     <string name="changes_require_restart">Changes require app restart to take effect</string>
     <string name="use_yolo_segmentation_with_model">Use AI Segmentation (%1$s)</string>
+    <string name="ai_segmentation_model">AI Segmentation Model</string>
 </resources>
