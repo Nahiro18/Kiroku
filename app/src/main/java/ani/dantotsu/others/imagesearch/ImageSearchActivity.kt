@@ -73,24 +73,18 @@ class ImageSearchActivity : AppCompatActivity() {
                     val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
                     if (bitmap != null) {
                         imageBytes = bytes
-                        withContext(Dispatchers.Main) {
+                        runOnUiThread {
                             originalBitmap = bitmap
                             displayImage(bitmap)
                         }
                     } else {
-                        withContext(Dispatchers.Main) {
-                            toast(getString(R.string.error_loading_image))
-                        }
+                        runOnUiThread { toast(getString(R.string.error_loading_image)) }
                     }
                 } else {
-                    withContext(Dispatchers.Main) {
-                        toast(getString(R.string.error_loading_image))
-                    }
+                    runOnUiThread { toast(getString(R.string.error_loading_image)) }
                 }
             } else {
-                withContext(Dispatchers.Main) {
-                    toast(getString(R.string.error_loading_image))
-                }
+                runOnUiThread { toast(getString(R.string.error_loading_image)) }
             }
         }
     }
@@ -146,13 +140,11 @@ class ImageSearchActivity : AppCompatActivity() {
                 val bitmap = originalBitmap ?: return@launch
                 val success = runYoloSegmentation(bitmap)
                 if (success) {
-                    withContext(Dispatchers.Main) {
+                    runOnUiThread {
                         drawSegmentationOverlay(originalBitmap!!, yoloSegmenter!!.segment(originalBitmap!!))
                     }
                 }
-                withContext(Dispatchers.Main) {
-                    performTraceMoeSearch()
-                }
+                runOnUiThread { performTraceMoeSearch() }
             }
         } else {
             performTraceMoeSearch()
@@ -169,7 +161,7 @@ class ImageSearchActivity : AppCompatActivity() {
         val stream = java.io.ByteArrayInputStream(imageBytes!!)
         lifecycleScope.launch(Dispatchers.IO) {
             viewModel.analyzeImage(stream)
-            withContext(Dispatchers.Main) {
+            runOnUiThread {
                 isSearching = false
                 searchButton?.isEnabled = true
             }
@@ -223,7 +215,7 @@ class ImageSearchActivity : AppCompatActivity() {
         val stream = java.io.ByteArrayInputStream(imageBytes!!)
         lifecycleScope.launch(Dispatchers.IO) {
             viewModel.analyzeImage(stream)
-            withContext(Dispatchers.Main) {
+            runOnUiThread {
                 isSearching = false
                 searchButton?.isEnabled = true
             }
@@ -257,13 +249,11 @@ class ImageSearchActivity : AppCompatActivity() {
                 val bitmap = originalBitmap ?: return@launch
                 val success = runYoloSegmentation(bitmap)
                 if (success) {
-                    withContext(Dispatchers.Main) {
+                    runOnUiThread {
                         drawSegmentationOverlay(originalBitmap!!, yoloSegmenter!!.segment(originalBitmap!!))
                     }
                 }
-                withContext(Dispatchers.Main) {
-                    performTraceMoeSearch()
-                }
+                runOnUiThread { performTraceMoeSearch() }
             }
         } else {
             performTraceMoeSearch()
@@ -305,57 +295,6 @@ class ImageSearchActivity : AppCompatActivity() {
             YoloModelManager.Model.V8 -> "YOLOv8n-seg"
         }
         binding.yoloToggle.text = getString(R.string.use_yolo_segmentation_with_model, modelName)
-    }
-
-    private fun performSearch() {
-        if (isSearching) return
-        isSearching = true
-        searchButton?.isEnabled = false
-
-        if (useYolo) {
-            lifecycleScope.launch(Dispatchers.IO) {
-                val bitmap = originalBitmap ?: return@launch
-                val success = runYoloSegmentation(bitmap)
-                if (success) {
-                    withContext(Dispatchers.Main) {
-                        drawSegmentationOverlay(originalBitmap!!, yoloSegmenter!!.segment(originalBitmap!!))
-                    }
-                }
-                withContext(Dispatchers.Main) {
-                    performTraceMoeSearch()
-                }
-            }
-        } else {
-            performTraceMoeSearch()
-        }
-    }
-
-    private fun displayImage(bitmap: Bitmap) {
-        binding.imagePreview.setImageBitmap(bitmap)
-        binding.imagePreview.visibility = View.VISIBLE
-        binding.uploadImage.text = getString(R.string.search_again)
-        binding.yoloContainer.visibility = View.VISIBLE
-        binding.searchButtonContainer.visibility = View.VISIBLE
-
-        updateYoloToggleLabel()
-
-        binding.yoloToggle.setOnCheckedChangeListener(null)
-        binding.yoloToggle.isChecked = useYolo
-        binding.yoloToggle.setOnCheckedChangeListener { _, isChecked ->
-            useYolo = isChecked
-            if (isChecked) {
-                if (YoloModelManager.isModelDownloaded(YoloModelManager.getSelectedModel())) {
-                    runOnUiThread { toast("AI enabled. Press Search to run segmentation.") }
-                } else {
-                    binding.yoloToggle.isChecked = false
-                    useYolo = false
-                    toast("Model not downloaded. Go to Addons to download it.")
-                }
-            }
-        }
-
-        setupSearchButton()
-        binding.progressBar.visibility = View.GONE
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -405,7 +344,7 @@ class ImageSearchActivity : AppCompatActivity() {
                     }
                     val media = Anilist.query.getMedia(id, false)
 
-                    withContext(Dispatchers.Main) {
+                    runOnUiThread {
                         media?.let {
                             startActivity(
                                 Intent(this@ImageSearchActivity, MediaDetailsActivity::class.java)
