@@ -2061,27 +2061,17 @@ class ExoplayerView :
 
         if (items.isEmpty()) return
 
-        val currentSelection = trackSelector.currentMappedTrackInfo
-            ?.getTrackGroups(TRACK_TYPE_VIDEO)
-            ?.let { groups ->
-                for (g in 0 until groups.length) {
-                    val override = trackSelector.getSelectionOverride(g, TRACK_TYPE_VIDEO)
-                    if (override != null) return@let override.tracks.firstOrNull()
-                }
-                -1
-            } ?: -1
-
         customAlertDialog().apply {
             setTitle(R.string.select_quality)
-            singleChoiceItems(items.toTypedArray(), currentSelection) { index ->
+            singleChoiceItems(items.toTypedArray(), -1) { index ->
                 val groupIndex = groupIndices[index]
                 val trackIndex = trackIndices[index]
-                val trackGroup = videoTrackGroups.get(groupIndex).mediaTrackGroup
-                val override = TrackSelectionOverride(trackGroup, listOf(trackIndex))
-                val newParams = trackSelector.parameters.buildUpon()
-                    .setTrackSelectionOverride(groupIndex, TRACK_TYPE_VIDEO, override)
+                val trackGroup = videoTrackGroups.get(groupIndex)
+                val override = TrackSelectionOverride(trackGroup, trackIndex)
+                exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters
+                    .buildUpon()
+                    .setOverrideForType(override)
                     .build()
-                trackSelector.setParameters(newParams)
             }
             setOnCancelListener { hideSystemBars() }
             show()
