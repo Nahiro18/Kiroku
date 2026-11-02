@@ -30,6 +30,7 @@ class YoloSegmenter private constructor(
             delegate: YoloModelManager.Delegate
         ): YoloSegmenter? {
             return try {
+                release()
                 val options = Interpreter.Options().apply {
                     setNumThreads(4)
                     when (delegate) {
@@ -128,13 +129,9 @@ class YoloSegmenter private constructor(
     ): List<SegmentationResult> {
         val results = mutableListOf<SegmentationResult>()
 
-        val masksBuffer = outputTensors[0].apply { rewind() }
         val boxesBuffer = outputTensors[1].apply { rewind() }
         val scoresBuffer = outputTensors[2].apply { rewind() }
         val protosBuffer = outputTensors[3].apply { rewind() }
-
-        val masks = IntArray(160 * 160 * 32)
-        masksBuffer.asIntBuffer().get(masks)
 
         val boxes = IntArray(4 * 8400)
         boxesBuffer.asIntBuffer().get(boxes)
@@ -170,11 +167,10 @@ class YoloSegmenter private constructor(
             }
 
             if (maxScore > 0.5f && maxClass != -1) {
-                val boxIdx = i * 4
-                val cx = ((boxes[boxIdx] - boxZeroPoint) * boxScale) * 640f
-                val cy = ((boxes[boxIdx + 1] - boxZeroPoint) * boxScale) * 640f
-                val w = ((boxes[boxIdx + 2] - boxZeroPoint) * boxScale) * 640f
-                val h = ((boxes[boxIdx + 3] - boxZeroPoint) * boxScale) * 640f
+                val cx = ((boxes[i] - boxZeroPoint) * boxScale) * 640f
+                val cy = ((boxes[8400 + i] - boxZeroPoint) * boxScale) * 640f
+                val w = ((boxes[16800 + i] - boxZeroPoint) * boxScale) * 640f
+                val h = ((boxes[25200 + i] - boxZeroPoint) * boxScale) * 640f
 
                 val left = (cx - w / 2) * scaleX
                 val top = (cy - h / 2) * scaleY
@@ -183,8 +179,7 @@ class YoloSegmenter private constructor(
 
                 val maskVector = FloatArray(32)
                 for (k in 0 until 32) {
-                    val mIdx = k * 160 * 160 + (cy / 4).toInt().coerceIn(0, 159) * 160 + (cx / 4).toInt().coerceIn(0, 159)
-                    maskVector[k] = (masks[mIdx] - maskZeroPoint) * maskScale
+                    maskVector[k] = (protos[k * 8400 + i] - maskZeroPoint) * maskScale
                 }
 
                 results.add(SegmentationResult(
@@ -201,7 +196,7 @@ class YoloSegmenter private constructor(
             }
         }
 
-        return results
+        return results.sortedByDescending { it.confidence }.take(8)
     }
 
     fun drawSegmentation(canvas: Canvas, bitmap: Bitmap, results: List<SegmentationResult>, paint: Paint) {

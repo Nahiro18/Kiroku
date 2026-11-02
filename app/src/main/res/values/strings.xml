@@ -1170,4 +1170,11 @@ Non quae tempore quo provident laudantium qui illo dolor vel quia dolor et exerc
     <string name="changes_require_restart">Changes require app restart to take effect</string>
     <string name="use_yolo_segmentation_with_model">Use AI Segmentation (%1$s)</string>
     <string name="ai_segmentation_model">AI Segmentation Model</string>
+    <string name="yolo_toggle_desc">Crops the detected character before searching. Turns off after each search.</string>
+    <string name="yolo_fallback">Using fallback: %1$s @ %2$s</string>
+    <string name="yolo_found_regions">AI detected %1$d regions. Searching the best one.</string>
+    <string name="yolo_no_regions">No regions detected. Searching the full image.</string>
+    <string name="yolo_model_missing">Model not downloaded. Go to Add-ons to download it.</string>
+    <string name="yolo_models_deleted">AI models deleted</string>
+    <string name="yolo_delete_busy">A download is running. Try again in a moment.</string>
 </resources>

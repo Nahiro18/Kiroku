@@ -18,6 +18,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import ani.dantotsu.R
 import ani.dantotsu.ai.YoloModelManager
+import ani.dantotsu.ai.YoloSegmenter
 import ani.dantotsu.addons.AddonDownloader
 import ani.dantotsu.addons.download.DownloadAddonManager
 import ani.dantotsu.addons.torrent.TorrentAddonManager
@@ -269,7 +270,6 @@ class SettingsAddonActivity : AppCompatActivity() {
         val isCompatible = YoloModelManager.isCompatible()
 
         val bothDownloaded = v11Downloaded && v8Downloaded
-        val anyDownloaded = v11Downloaded || v8Downloaded
 
         itemView.settingsDesc.text = if (!isCompatible) {
             getString(R.string.yolo_not_compatible)
@@ -282,19 +282,30 @@ class SettingsAddonActivity : AppCompatActivity() {
         }
 
         itemView.settingsIconRight.apply {
+            animate().cancel()
+            rotation = 0f
             if (!isCompatible) {
                 visibility = View.GONE
-            } else if (bothDownloaded) {
-                setImageResource(R.drawable.ic_round_delete_24)
-                setOnClickListener {
-                    YoloModelManager.deleteAllModels()
-                    (binding.settingsRecyclerView.adapter as? SettingsAdapter)?.notifyDataSetChanged()
-                    showRestartDialog()
-                }
             } else {
-                setImageResource(R.drawable.ic_download_24)
-                setOnClickListener {
-                    downloadBothModels(itemView)
+                visibility = View.VISIBLE
+                if (bothDownloaded) {
+                    setImageResource(R.drawable.ic_kiroku_delete_24)
+                    setOnClickListener {
+                        val deleted = YoloModelManager.deleteAllModels()
+                        YoloSegmenter.release()
+                        (binding.settingsRecyclerView.adapter as? SettingsAdapter)?.notifyDataSetChanged()
+                        if (deleted) {
+                            snackString(getString(R.string.yolo_models_deleted))
+                            showRestartDialog()
+                        } else {
+                            snackString(getString(R.string.yolo_delete_busy))
+                        }
+                    }
+                } else {
+                    setImageResource(R.drawable.ic_kiroku_download_24)
+                    setOnClickListener {
+                        downloadBothModels(itemView)
+                    }
                 }
             }
         }
@@ -305,6 +316,8 @@ class SettingsAddonActivity : AppCompatActivity() {
 
         val job = Job()
         val scope = CoroutineScope(Dispatchers.Main + job)
+        itemView.settingsIconRight.animate().cancel()
+        itemView.settingsIconRight.rotation = 0f
         itemView.settingsIconRight.setImageResource(R.drawable.ic_sync)
         scope.launch {
             while (isActive && YoloModelManager.isDownloadingNow()) {
@@ -332,11 +345,11 @@ class SettingsAddonActivity : AppCompatActivity() {
             itemView.settingsIconRight.animate().cancel()
             itemView.settingsIconRight.rotation = 0f
             if (v11Success && v8Success) {
-                itemView.settingsIconRight.setImageResource(R.drawable.ic_round_delete_24)
+                itemView.settingsIconRight.setImageResource(R.drawable.ic_kiroku_delete_24)
                 itemView.settingsDesc.text = getString(R.string.yolo_both_downloaded)
                 showRestartDialog()
             } else {
-                itemView.settingsIconRight.setImageResource(R.drawable.ic_download_24)
+                itemView.settingsIconRight.setImageResource(R.drawable.ic_kiroku_download_24)
                 itemView.settingsDesc.text = getString(R.string.yolo_download_failed)
             }
         }
@@ -345,11 +358,13 @@ class SettingsAddonActivity : AppCompatActivity() {
     private fun setupYoloModelSpinner(itemView: ItemSettingsBinding) {
         clearAttachView(itemView)
         val currentModel = YoloModelManager.getSelectedModel()
+        var ready = false
         val spinner = Spinner(this).apply {
             adapter = ArrayAdapter(this@SettingsAddonActivity, android.R.layout.simple_spinner_dropdown_item, arrayOf("YOLOv11n-seg", "YOLOv8n-seg"))
             setSelection(currentModel.ordinal)
             onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    if (!ready) return
                     val newModel = YoloModelManager.Model.values()[position]
                     if (newModel != YoloModelManager.getSelectedModel()) {
                         YoloModelManager.setSelectedModel(newModel)
@@ -358,6 +373,7 @@ class SettingsAddonActivity : AppCompatActivity() {
                 }
                 override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
             }
+            post { ready = true }
         }
         itemView.attachView.addView(spinner)
         itemView.settingsIconRight.visibility = View.GONE
@@ -366,11 +382,13 @@ class SettingsAddonActivity : AppCompatActivity() {
     private fun setupYoloDelegateSpinner(itemView: ItemSettingsBinding) {
         clearAttachView(itemView)
         val currentDelegate = YoloModelManager.getSelectedDelegate()
+        var ready = false
         val spinner = Spinner(this).apply {
             adapter = ArrayAdapter(this@SettingsAddonActivity, android.R.layout.simple_spinner_dropdown_item, arrayOf("GPU (recommended)", "CPU (fallback)"))
             setSelection(currentDelegate.ordinal)
             onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    if (!ready) return
                     val newDelegate = YoloModelManager.Delegate.values()[position]
                     if (newDelegate != YoloModelManager.getSelectedDelegate()) {
                         YoloModelManager.setSelectedDelegate(newDelegate)
@@ -379,6 +397,7 @@ class SettingsAddonActivity : AppCompatActivity() {
                 }
                 override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
             }
+            post { ready = true }
         }
         itemView.attachView.addView(spinner)
         itemView.settingsIconRight.visibility = View.GONE

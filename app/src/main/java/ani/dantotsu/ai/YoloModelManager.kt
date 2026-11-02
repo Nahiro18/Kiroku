@@ -36,9 +36,8 @@ object YoloModelManager {
     private val isDownloading = AtomicBoolean(false)
 
     fun getSelectedModel(): Model {
-        return PrefManager.getCustomVal(PREF_SELECTED_MODEL, "V11").let {
-            Model.valueOf(it)
-        }
+        val stored = PrefManager.getCustomVal(PREF_SELECTED_MODEL, "V11")
+        return runCatching { Model.valueOf(stored) }.getOrDefault(Model.V11)
     }
 
     fun setSelectedModel(model: Model) {
@@ -46,9 +45,8 @@ object YoloModelManager {
     }
 
     fun getSelectedDelegate(): Delegate {
-        return PrefManager.getCustomVal(PREF_SELECTED_DELEGATE, "GPU").let {
-            Delegate.valueOf(it)
-        }
+        val stored = PrefManager.getCustomVal(PREF_SELECTED_DELEGATE, "GPU")
+        return runCatching { Delegate.valueOf(stored) }.getOrDefault(Delegate.GPU)
     }
 
     fun setSelectedDelegate(delegate: Delegate) {
@@ -82,13 +80,7 @@ object YoloModelManager {
         val acquired = lock.tryLock()
         if (!acquired) return false
         return try {
-            val pref = if (model == Model.V11) PREF_V11_PATH else PREF_V8_PATH
-            val path = PrefManager.getCustomVal(pref, "")
-            if (path.isNotBlank()) {
-                File(path).delete()
-            }
-            PrefManager.removeCustomVal(pref)
-            true
+            deleteModelLocked(model)
         } finally {
             lock.unlock()
         }
@@ -98,12 +90,26 @@ object YoloModelManager {
         val acquired = lock.tryLock()
         if (!acquired) return false
         return try {
-            deleteModel(Model.V11)
-            deleteModel(Model.V8)
+            deleteModelLocked(Model.V11)
+            deleteModelLocked(Model.V8)
             true
         } finally {
             lock.unlock()
         }
+    }
+
+    private fun deleteModelLocked(model: Model): Boolean {
+        val info = getModelInfo(model)
+        val prefPath = PrefManager.getCustomVal(info.prefKey, "")
+        if (prefPath.isNotBlank()) {
+            runCatching { File(prefPath).delete() }
+        }
+        val context = currContext()
+        if (context != null) {
+            runCatching { File(File(context.filesDir, "models"), info.fileName).delete() }
+        }
+        PrefManager.removeCustomVal(info.prefKey)
+        return !isModelDownloaded(model)
     }
 
     private data class ModelInfo(
