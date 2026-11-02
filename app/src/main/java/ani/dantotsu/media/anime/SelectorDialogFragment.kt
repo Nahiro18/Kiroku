@@ -677,7 +677,11 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
             }
             binding.urlNote.visibility = View.VISIBLE
             binding.urlNote.text = video.format.name
-            binding.urlQuality.text = extractor.server.name
+            binding.urlQuality.text = when {
+                video.format == VideoType.M3U8 -> "Multi Quality"
+                video.quality != null -> "${video.quality}p"
+                else -> "Unknown Quality"
+            }
         }
 
         private fun broadcastDownloadStarted(episodeNumber: String, activity: Activity) {
