@@ -66,7 +66,6 @@ import androidx.media3.common.C.TRACK_TYPE_TEXT
 import androidx.media3.common.C.TRACK_TYPE_VIDEO
 import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
-import androidx.media3.exoplayer.trackselection.TrackSelectionParameters
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
@@ -2078,8 +2077,10 @@ class ExoplayerView :
             singleChoiceItems(items.toTypedArray(), currentSelection) { index ->
                 val groupIndex = groupIndices[index]
                 val trackIndex = trackIndices[index]
+                val trackGroup = videoTrackGroups.get(groupIndex).mediaTrackGroup
+                val override = TrackSelectionOverride(trackGroup, listOf(trackIndex))
                 val newParams = trackSelector.parameters.buildUpon()
-                    .setTrackSelectionOverride(groupIndex, TRACK_TYPE_VIDEO, listOf(trackIndex))
+                    .setTrackSelectionOverride(groupIndex, TRACK_TYPE_VIDEO, override)
                     .build()
                 trackSelector.setParameters(newParams)
             }
