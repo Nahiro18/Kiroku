@@ -91,9 +91,10 @@ class ImageSearchActivity : AppCompatActivity() {
             if (!modelFile.exists()) continue
 
             val segmenter = YoloSegmenter.getInstance(this, modelFile, model, delegate) ?: continue
-            val results = runCatching { segmenter.segment(bitmap) }.getOrElse {
+            val results = runCatching { segmenter.segment(bitmap) }.getOrNull()
+            if (results == null) {
                 YoloSegmenter.release()
-                emptyList()
+                continue
             }
 
             if (model != selectedModel || delegate != selectedDelegate) {
