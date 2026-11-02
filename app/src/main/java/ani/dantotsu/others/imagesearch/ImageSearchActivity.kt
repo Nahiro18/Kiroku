@@ -183,7 +183,100 @@ class ImageSearchActivity : AppCompatActivity() {
         binding.yoloContainer.visibility = View.VISIBLE
         binding.searchButtonContainer.visibility = View.VISIBLE
 
-        // Update the toggle label with the selected model
+        updateYoloToggleLabel()
+
+        binding.yoloToggle.setOnCheckedChangeListener(null)
+        binding.yoloToggle.isChecked = useYolo
+        binding.yoloToggle.setOnCheckedChangeListener { _, isChecked ->
+            useYolo = isChecked
+            if (isChecked) {
+                if (YoloModelManager.isModelDownloaded(YoloModelManager.getSelectedModel())) {
+                    runOnUiThread { toast("AI enabled. Press Search to run segmentation.") }
+                } else {
+                    binding.yoloToggle.isChecked = false
+                    useYolo = false
+                    toast("Model not downloaded. Go to Addons to download it.")
+                }
+            }
+        }
+
+        setupSearchButton()
+        binding.progressBar.visibility = View.GONE
+    }
+
+    private fun updateYoloToggleLabel() {
+        val model = YoloModelManager.getSelectedModel()
+        val modelName = when (model) {
+            YoloModelManager.Model.V11 -> "YOLOv11n-seg"
+            YoloModelManager.Model.V8 -> "YOLOv8n-seg"
+        }
+        binding.yoloToggle.text = getString(R.string.use_yolo_segmentation_with_model, modelName)
+    }
+
+    private fun performTraceMoeSearch() {
+        if (imageBytes == null) {
+            isSearching = false
+            searchButton?.isEnabled = true
+            return
+        }
+
+        val stream = java.io.ByteArrayInputStream(imageBytes!!)
+        lifecycleScope.launch(Dispatchers.IO) {
+            viewModel.analyzeImage(stream)
+            withContext(Dispatchers.Main.immediate) {
+                isSearching = false
+                searchButton?.isEnabled = true
+            }
+        }
+    }
+
+    private fun setupSearchButton() {
+        if (searchButton == null) {
+            searchButton = Button(this).apply {
+                text = getString(R.string.search)
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+                setBackgroundColor(getColor(android.R.color.holo_blue_dark))
+                setTextColor(getColor(android.R.color.white))
+                textSize = 16f
+                setOnClickListener { performSearch() }
+            }
+            binding.searchButtonContainer.addView(searchButton!!)
+        }
+    }
+
+    private fun performSearch() {
+        if (isSearching) return
+        isSearching = true
+        searchButton?.isEnabled = false
+
+        if (useYolo) {
+            lifecycleScope.launch(Dispatchers.IO) {
+                val bitmap = originalBitmap ?: return@launch
+                val success = runYoloSegmentation(bitmap)
+                if (success) {
+                    withContext(Dispatchers.Main.immediate) {
+                        drawSegmentationOverlay(originalBitmap!!, yoloSegmenter!!.segment(originalBitmap!!))
+                    }
+                }
+                withContext(Dispatchers.Main.immediate) {
+                    performTraceMoeSearch()
+                }
+            }
+        } else {
+            performTraceMoeSearch()
+        }
+    }
+
+    private fun displayImage(bitmap: Bitmap) {
+        binding.imagePreview.setImageBitmap(bitmap)
+        binding.imagePreview.visibility = View.VISIBLE
+        binding.uploadImage.text = getString(R.string.search_again)
+        binding.yoloContainer.visibility = View.VISIBLE
+        binding.searchButtonContainer.visibility = View.VISIBLE
+
         updateYoloToggleLabel()
 
         binding.yoloToggle.setOnCheckedChangeListener(null)
@@ -237,23 +330,6 @@ class ImageSearchActivity : AppCompatActivity() {
         }
     }
 
-    private fun performTraceMoeSearch() {
-        if (imageBytes == null) {
-            isSearching = false
-            searchButton?.isEnabled = true
-            return
-        }
-
-        val stream = java.io.ByteArrayInputStream(imageBytes!!)
-        lifecycleScope.launch(Dispatchers.IO) {
-            viewModel.analyzeImage(stream)
-            withContext(Dispatchers.Main.immediate) {
-                isSearching = false
-                searchButton?.isEnabled = true
-            }
-        }
-    }
-
     private fun displayImage(bitmap: Bitmap) {
         binding.imagePreview.setImageBitmap(bitmap)
         binding.imagePreview.visibility = View.VISIBLE
@@ -261,7 +337,6 @@ class ImageSearchActivity : AppCompatActivity() {
         binding.yoloContainer.visibility = View.VISIBLE
         binding.searchButtonContainer.visibility = View.VISIBLE
 
-        // Update the toggle label with the selected model
         updateYoloToggleLabel()
 
         binding.yoloToggle.setOnCheckedChangeListener(null)
@@ -281,93 +356,6 @@ class ImageSearchActivity : AppCompatActivity() {
 
         setupSearchButton()
         binding.progressBar.visibility = View.GONE
-    }
-
-    private fun updateYoloToggleLabel() {
-        val model = YoloModelManager.getSelectedModel()
-        val modelName = when (model) {
-            YoloModelManager.Model.V11 -> "YOLOv11n-seg"
-            YoloModelManager.Model.V8 -> "YOLOv8n-seg"
-        }
-        binding.yoloToggle.text = getString(R.string.use_yolo_segmentation_with_model, modelName)
-    }
-
-    private fun performSearch() {
-        if (isSearching) return
-        isSearching = true
-        searchButton?.isEnabled = false
-
-        if (useYolo) {
-            lifecycleScope.launch(Dispatchers.IO) {
-                val bitmap = originalBitmap ?: return@launch
-                val success = runYoloSegmentation(bitmap)
-                if (success) {
-                    withContext(Dispatchers.Main.immediate) {
-                        drawSegmentationOverlay(originalBitmap!!, yoloSegmenter!!.segment(originalBitmap!!))
-                    }
-                }
-                withContext(Dispatchers.Main.immediate) {
-                    performTraceMoeSearch()
-                }
-            }
-        } else {
-            performTraceMoeSearch()
-        }
-    }
-
-    private fun performTraceMoeSearch() {
-        if (imageBytes == null) {
-            isSearching = false
-            searchButton?.isEnabled = true
-            return
-        }
-
-        val stream = java.io.ByteArrayInputStream(imageBytes!!)
-        lifecycleScope.launch(Dispatchers.IO) {
-            viewModel.analyzeImage(stream)
-            withContext(Dispatchers.Main.immediate) {
-                isSearching = false
-                searchButton?.isEnabled = true
-            }
-        }
-    }
-
-    private fun displayImage(bitmap: Bitmap) {
-        binding.imagePreview.setImageBitmap(bitmap)
-        binding.imagePreview.visibility = View.VISIBLE
-        binding.uploadImage.text = getString(R.string.search_again)
-        binding.yoloContainer.visibility = View.VISIBLE
-        binding.searchButtonContainer.visibility = View.VISIBLE
-
-        // Update the toggle label with the selected model
-        updateYoloToggleLabel()
-
-        binding.yoloToggle.setOnCheckedChangeListener(null)
-        binding.yoloToggle.isChecked = useYolo
-        binding.yoloToggle.setOnCheckedChangeListener { _, isChecked ->
-            useYolo = isChecked
-            if (isChecked) {
-                if (YoloModelManager.isModelDownloaded(YoloModelManager.getSelectedModel())) {
-                    runOnUiThread { toast("AI enabled. Press Search to run segmentation.") }
-                } else {
-                    binding.yoloToggle.isChecked = false
-                    useYolo = false
-                    toast("Model not downloaded. Go to Addons to download it.")
-                }
-            }
-        }
-
-        setupSearchButton()
-        binding.progressBar.visibility = View.GONE
-    }
-
-    private fun updateYoloToggleLabel() {
-        val model = YoloModelManager.getSelectedModel()
-        val modelName = when (model) {
-            YoloModelManager.Model.V11 -> "YOLOv11n-seg"
-            YoloModelManager.Model.V8 -> "YOLOv8n-seg"
-        }
-        binding.yoloToggle.text = getString(R.string.use_yolo_segmentation_with_model, modelName)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
