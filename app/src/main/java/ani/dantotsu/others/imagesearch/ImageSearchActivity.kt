@@ -183,6 +183,9 @@ class ImageSearchActivity : AppCompatActivity() {
         binding.yoloContainer.visibility = View.VISIBLE
         binding.searchButtonContainer.visibility = View.VISIBLE
 
+        // Update the toggle label with the selected model
+        updateYoloToggleLabel()
+
         binding.yoloToggle.setOnCheckedChangeListener(null)
         binding.yoloToggle.isChecked = useYolo
         binding.yoloToggle.setOnCheckedChangeListener { _, isChecked ->
@@ -200,6 +203,55 @@ class ImageSearchActivity : AppCompatActivity() {
 
         setupSearchButton()
         binding.progressBar.visibility = View.GONE
+    }
+
+    private fun updateYoloToggleLabel() {
+        val model = YoloModelManager.getSelectedModel()
+        val modelName = when (model) {
+            YoloModelManager.Model.V11 -> "YOLOv11n-seg"
+            YoloModelManager.Model.V8 -> "YOLOv8n-seg"
+        }
+        binding.yoloToggle.text = getString(R.string.use_yolo_segmentation_with_model, modelName)
+    }
+
+    private fun performSearch() {
+        if (isSearching) return
+        isSearching = true
+        searchButton?.isEnabled = false
+
+        if (useYolo) {
+            lifecycleScope.launch(Dispatchers.IO) {
+                val bitmap = originalBitmap ?: return@launch
+                val success = runYoloSegmentation(bitmap)
+                if (success) {
+                    withContext(Dispatchers.Main) {
+                        drawSegmentationOverlay(originalBitmap!!, yoloSegmenter!!.segment(originalBitmap!!))
+                    }
+                }
+                withContext(Dispatchers.Main) {
+                    performTraceMoeSearch()
+                }
+            }
+        } else {
+            performTraceMoeSearch()
+        }
+    }
+
+    private fun performTraceMoeSearch() {
+        if (imageBytes == null) {
+            isSearching = false
+            searchButton?.isEnabled = true
+            return
+        }
+
+        val stream = java.io.ByteArrayInputStream(imageBytes!!)
+        lifecycleScope.launch(Dispatchers.IO) {
+            viewModel.analyzeImage(stream)
+            withContext(Dispatchers.Main) {
+                isSearching = false
+                searchButton?.isEnabled = true
+            }
+        }
     }
 
     private fun setupSearchButton() {
