@@ -1,14 +1,21 @@
 package ani.dantotsu.settings
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import android.view.ViewGroup
 import android.view.animation.LinearInterpolator
+import android.widget.Button
+import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AlertDialog
 import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import ani.dantotsu.R
+import ani.dantotsu.ai.PersonModelManager
 import ani.dantotsu.addons.AddonDownloader
 import ani.dantotsu.addons.download.DownloadAddonManager
 import ani.dantotsu.addons.torrent.TorrentAddonManager
@@ -203,7 +210,17 @@ class SettingsAddonActivity : AppCompatActivity() {
                                 }
                             }
                         },
-                    )
+                    ),
+                    Settings(
+                        type = 1,
+                        name = getString(R.string.ai_person_model),
+                        desc = getString(R.string.ai_person_model_desc),
+                        icon = R.drawable.ic_round_auto_awesome_24,
+                        isActivity = false,
+                        attach = { itemView ->
+                            setupPersonModel(itemView)
+                        },
+                    ),
                 )
             )
             settingsRecyclerView.layoutManager =
@@ -212,10 +229,88 @@ class SettingsAddonActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        (binding.settingsRecyclerView.adapter as? SettingsAdapter)?.notifyDataSetChanged()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         torrentAddonManager.removeListenerAction()
         downloadAddonManager.removeListenerAction()
+    }
+
+    private fun setupPersonModel(itemView: ItemSettingsBinding) {
+        val downloaded = PersonModelManager.isDownloaded()
+        val isCompatible = PersonModelManager.isCompatible()
+
+        itemView.settingsDesc.text = when {
+            !isCompatible -> getString(R.string.ai_person_not_compatible)
+            downloaded -> getString(R.string.ai_person_downloaded)
+            else -> getString(R.string.ai_person_model_desc)
+        }
+
+        itemView.settingsIconRight.apply {
+            animate().cancel()
+            rotation = 0f
+            if (!isCompatible) {
+                visibility = View.GONE
+            } else {
+                visibility = View.VISIBLE
+                if (downloaded) {
+                    setImageResource(R.drawable.ic_kiroku_delete_24)
+                    setOnClickListener {
+                        val deleted = PersonModelManager.delete()
+                        (binding.settingsRecyclerView.adapter as? SettingsAdapter)?.notifyDataSetChanged()
+                        if (deleted) {
+                            snackString(getString(R.string.ai_person_model_deleted))
+                        } else {
+                            snackString(getString(R.string.ai_person_delete_busy))
+                        }
+                    }
+                } else {
+                    setImageResource(R.drawable.ic_kiroku_download_24)
+                    setOnClickListener { downloadPersonModel(itemView) }
+                }
+            }
+        }
+    }
+
+    private fun downloadPersonModel(itemView: ItemSettingsBinding) {
+        if (PersonModelManager.isDownloadingNow()) return
+
+        itemView.settingsIconRight.animate().cancel()
+        itemView.settingsIconRight.rotation = 0f
+        itemView.settingsIconRight.setImageResource(R.drawable.ic_sync)
+
+        val spinJob = Job()
+        CoroutineScope(Dispatchers.Main + spinJob).launch {
+            while (isActive && PersonModelManager.isDownloadingNow()) {
+                itemView.settingsIconRight.animate()
+                    .rotationBy(360f)
+                    .setDuration(1000)
+                    .setInterpolator(LinearInterpolator())
+                    .start()
+                delay(1000)
+            }
+        }
+
+        CoroutineScope(Dispatchers.Main).launch {
+            val success = PersonModelManager.download { progress ->
+                itemView.settingsDesc.text = getString(R.string.ai_person_downloading, progress)
+            }
+            spinJob.cancel()
+            itemView.settingsIconRight.animate().cancel()
+            itemView.settingsIconRight.rotation = 0f
+            if (success) {
+                itemView.settingsIconRight.setImageResource(R.drawable.ic_kiroku_delete_24)
+                itemView.settingsDesc.text = getString(R.string.ai_person_downloaded)
+                (binding.settingsRecyclerView.adapter as? SettingsAdapter)?.notifyDataSetChanged()
+            } else {
+                itemView.settingsIconRight.setImageResource(R.drawable.ic_kiroku_download_24)
+                itemView.settingsDesc.text = getString(R.string.ai_person_download_failed)
+            }
+        }
     }
 
     private fun setStatus(

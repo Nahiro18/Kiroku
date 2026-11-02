@@ -328,8 +328,6 @@
     <string name="empty_fav">Looks like you don\'t like anything,\nTry liking a show to keep it here.</string>
     <string name="fav_anime">Favourite Anime</string>
     <string name="fav_manga">Favourite Manga</string>
-    <string name="restart_app">Restart the app?</string>
-    <string name="restart_app_extra">Restart the app to apply changes</string>
     <string name="next">Next</string>
     <string name="previous">Previous</string>
     <string name="current_page">Current Page</string>
@@ -1144,4 +1142,19 @@ Non quae tempore quo provident laudantium qui illo dolor vel quia dolor et exerc
     <string name="pref_subsource_api_key">SubSource API Key</string>
     <string name="auto_scroll">Auto Scroll</string>
     <string name="auto_scroll_speed">Auto Scroll Speed</string>
+    <string name="ai_person_toggle">AI Person Crop</string>
+    <string name="ai_person_toggle_desc">Detects the main person, searches both the crop and the full frame, and keeps the best match. Turns off after each search.</string>
+    <string name="ai_person_model">AI Person Detector</string>
+    <string name="ai_person_model_desc">Anime person detection model. Size: ~3 MB. Runs on CPU only, when enabled and you press Search.</string>
+    <string name="ai_person_downloaded">Model ready</string>
+    <string name="ai_person_downloading">Downloading... %1$.0f%%</string>
+    <string name="ai_person_download_failed">Download failed</string>
+    <string name="ai_person_model_deleted">AI model deleted</string>
+    <string name="ai_person_delete_busy">A download is running. Try again in a moment.</string>
+    <string name="ai_person_not_compatible">Device not compatible (requires Android 9+)</string>
+    <string name="ai_person_found">AI detected %1$d people. Searching the best one.</string>
+    <string name="ai_person_no_match">No person detected. Searching the full image.</string>
+    <string name="ai_person_model_missing">Model not downloaded. Go to Add-ons to download it.</string>
+    <string name="restart_app">Restart App</string>
+    <string name="changes_require_restart">Changes require app restart to take effect</string>
 </resources>

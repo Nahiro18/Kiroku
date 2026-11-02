@@ -17,6 +17,19 @@ class ImageSearchViewModel : ViewModel() {
     private val url = "https://api.trace.moe/search?cutBorders&anilistInfo"
 
     suspend fun analyzeImage(inputStream: InputStream) {
+        searchResultLiveData.postValue(query(inputStream))
+    }
+
+    suspend fun analyzeImage(vararg inputStreams: InputStream) {
+        var best: SearchResult? = null
+        for (stream in inputStreams) {
+            val res = query(stream)
+            if (best == null || res.score() > best.score()) best = res
+        }
+        searchResultLiveData.postValue(best ?: SearchResult(error = "empty request"))
+    }
+
+    private suspend fun query(inputStream: InputStream): SearchResult {
         val requestBody = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
             .addFormDataPart(
@@ -26,13 +39,15 @@ class ImageSearchViewModel : ViewModel() {
             )
             .build()
 
-        val res = try {
+        return try {
             client.post(url, requestBody = requestBody).parsed<SearchResult>()
         } catch (e: Exception) {
             SearchResult(error = e.message)
         }
-        searchResultLiveData.postValue(res)
     }
+
+    private fun SearchResult.score(): Double =
+        result?.mapNotNull { it.similarity }?.maxOrNull() ?: -1.0
 
     fun clearResults() {
         searchResultLiveData.postValue(SearchResult())

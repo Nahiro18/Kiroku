@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="?android:colorBackground"
     android:paddingTop="32dp">
 
     <LinearLayout
@@ -24,40 +25,104 @@
             app:drawableStartCompat="@drawable/ic_round_arrow_back_ios_new_24"
             app:drawableTint="?attr/colorOnBackground" />
 
+        <LinearLayout
+            android:id="@+id/aiContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:layout_marginHorizontal="16dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center"
+                android:layout_marginVertical="24dp"
+                android:layout_marginEnd="24dp"
+                android:src="@drawable/ic_round_auto_awesome_24"
+                app:tint="?attr/colorPrimary"
+                tools:ignore="ContentDescription" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="44sp"
+                android:gravity="center_vertical"
+                android:orientation="vertical">
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/aiToggle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:checked="false"
+                    android:elegantTextHeight="true"
+                    android:fontFamily="@font/poppins_bold"
+                    android:text="@string/ai_person_toggle"
+                    android:textAlignment="viewStart"
+                    android:textColor="?attr/colorOnBackground"
+                    android:textSize="16sp"
+                    app:cornerRadius="0dp"
+                    app:drawableTint="?attr/colorPrimary"
+                    app:showText="false"
+                    app:thumbTint="@color/button_switch_track" />
+
+                <TextView
+                    android:id="@+id/aiToggleDesc"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:alpha="0.66"
+                    android:fontFamily="@font/poppins_semi_bold"
+                    android:text="@string/ai_person_toggle_desc"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/imagePreview"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:layout_margin="16dp"
+            android:background="?attr/colorSurfaceVariant"
+            android:clickable="true"
+            android:focusable="true"
+            android:scaleType="centerCrop"
+            android:visibility="gone"
+            tools:ignore="ContentDescription" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/searchButton"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginTop="8dp"
+            android:fontFamily="@font/poppins_bold"
+            android:text="@string/search"
+            android:textColor="?attr/colorOnPrimary"
+            app:backgroundTint="?attr/colorPrimary"
+            app:cornerRadius="12dp" />
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/recyclerView"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
+            android:layout_marginTop="8dp"
             android:clipToPadding="false"
             android:paddingStart="8dp"
             android:paddingEnd="8dp"
-            android:paddingBottom="92dp"
+            android:paddingBottom="16dp"
             app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
             tools:listitem="@layout/item_search_by_image" />
 
     </LinearLayout>
-
-    <Button
-        android:id="@+id/uploadImage"
-        android:layout_width="wrap_content"
-        android:layout_height="64dp"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"
-        android:elegantTextHeight="true"
-        android:fontFamily="@font/poppins_bold"
-        android:text="@string/upload_image"
-        android:textColor="?attr/colorOnPrimary"
-        app:cornerRadius="16dp"
-        app:icon="@drawable/ic_round_image_search_24"
-        app:iconTint="?attr/colorOnPrimary" />
 
     <ProgressBar
         android:id="@+id/progressBar"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-
-        android:visibility="invisible" />
+        android:visibility="gone" />
 </FrameLayout>

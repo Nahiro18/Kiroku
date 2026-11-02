@@ -61,8 +61,8 @@ class SettingsAdapter(private val settings: ArrayList<Settings>) :
                     true
                 }
                 b.settingsLayout.visibility = if (settings.isVisible) View.VISIBLE else View.GONE
-                b.settingsIconRight.visibility =
-                    if (settings.isActivity) View.VISIBLE else View.GONE
+                val showRightIcon = settings.isActivity || settings.attach != null
+                b.settingsIconRight.visibility = if (showRightIcon) View.VISIBLE else View.GONE
                 b.attachView.visibility = if (settings.attach != null) View.VISIBLE else View.GONE
                 settings.attach?.invoke(b)
             }

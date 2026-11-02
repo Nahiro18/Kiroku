@@ -78,3 +78,5 @@
 #-keepnames class <1>$$serializer { # -keepnames suffices; class is kept when serializer() is kept.
 #    static <1>$$serializer INSTANCE;
 #}
+-keep class org.tensorflow.lite.** { *; }
+-dontwarn org.tensorflow.lite.**

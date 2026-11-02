@@ -259,7 +259,7 @@ class SettingsAccountActivity : AppCompatActivity() {
     }
 
     fun reload() {
-        snackString(getString(R.string.restart_app_extra))
+        snackString(getString(R.string.changes_require_restart))
         //snackString(R.string.restart_app_extra)
         //?.setDuration(Snackbar.LENGTH_LONG)
         //?.setAction(R.string.do_it) {
