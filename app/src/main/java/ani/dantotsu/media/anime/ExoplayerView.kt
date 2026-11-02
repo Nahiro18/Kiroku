@@ -207,6 +207,7 @@ class ExoplayerView :
     private lateinit var exoPlay: ImageButton
     private lateinit var exoSource: ImageButton
     private lateinit var exoSettings: ImageButton
+    private lateinit var exoQuality: ImageButton
     private lateinit var exoSubtitle: ImageButton
     private lateinit var exoSubtitleView: SubtitleView
     private lateinit var exoAudioTrack: ImageButton
@@ -460,6 +461,7 @@ class ExoplayerView :
         exoPlay = playerView.findViewById(androidx.media3.ui.R.id.exo_play)
         exoSource = playerView.findViewById(R.id.exo_source)
         exoSettings = playerView.findViewById(R.id.exo_settings)
+        exoQuality = playerView.findViewById(R.id.exo_quality)
         exoSubtitle = playerView.findViewById(R.id.exo_sub)
         exoAudioTrack = playerView.findViewById(R.id.exo_audio)
         exoSubtitleView = playerView.findViewById(androidx.media3.ui.R.id.exo_subtitles)
@@ -1813,6 +1815,11 @@ class ExoplayerView :
         }
         trackSelector.setParameters(parameters)
 
+        // Quality selector button
+        exoQuality.setOnClickListener {
+            showQualitySelector()
+        }
+
         if (playbackPosition != 0L && !changingServer && !PrefManager.getVal<Boolean>(PrefName.AlwaysContinue)) {
             val time =
                 String.format(
@@ -2025,6 +2032,54 @@ class ExoplayerView :
         )
         model.saveSelected(media.id, media.selected!!)
         SubtitleDialogFragment().show(supportFragmentManager, "dialog")
+    }
+
+    private fun showQualitySelector() {
+        val trackInfo = trackSelector.currentMappedTrackInfo ?: return
+        val videoTrackGroups = trackInfo.getTrackGroups(TRACK_TYPE_VIDEO)
+        if (videoTrackGroups.length == 0) return
+
+        val items = mutableListOf<String>()
+        val trackIndices = mutableListOf<Int>()
+
+        for (groupIndex in 0 until videoTrackGroups.length) {
+            val group = videoTrackGroups.get(groupIndex)
+            for (trackIndex in 0 until group.length) {
+                val format = group.getFormat(trackIndex)
+                val quality = if (format.height > 0) "${format.height}p"
+                else if (format.width > 0) "${format.width}p"
+                else "Unknown"
+                val bitrate = if (format.bitrate > 0) " ~${format.bitrate / 1000} kbps" else ""
+                val codec = format.sampleMimeType?.substringAfterLast("/")?.uppercase() ?: ""
+                val label = "$quality$bitrate ${if (codec.isNotBlank()) "($codec)" else ""}".trim()
+                items.add(label)
+                trackIndices.add(groupIndex)
+            }
+        }
+
+        if (items.isEmpty()) return
+
+        val currentSelection = trackSelector.currentMappedTrackInfo
+            ?.getTrackGroups(TRACK_TYPE_VIDEO)
+            ?.let { groups ->
+                for (g in 0 until groups.length) {
+                    val override = trackSelector.getSelectionOverride(g, TRACK_TYPE_VIDEO)
+                    if (override != null) return@let override.tracks.firstOrNull()
+                }
+                -1
+            } ?: -1
+
+        customAlertDialog().apply {
+            setTitle(R.string.select_quality)
+            singleChoiceItems(items.toTypedArray(), currentSelection) { index ->
+                val groupIndex = trackIndices[index]
+                val group = videoTrackGroups.get(groupIndex)
+                val override = TrackSelectionOverride(group.mediaTrackGroup, index)
+                trackSelector.setSelectionOverride(groupIndex, TRACK_TYPE_VIDEO, override)
+            }
+            setOnCancelListener { hideSystemBars() }
+            show()
+        }
     }
 
     override fun onPause() {
@@ -2320,6 +2375,17 @@ class ExoplayerView :
                     .show(supportFragmentManager, "dialog")
             }
         }
+
+        val videoTracks: ArrayList<Tracks.Group> = arrayListOf()
+        tracks.groups.forEach {
+            when (it.type) {
+                TRACK_TYPE_VIDEO -> {
+                    if (it.isSupported(true)) videoTracks.add(it)
+                }
+            }
+        }
+        exoQuality.isVisible = videoTracks.any { it.length > 1 }
+
     }
 
     private val onChangeSettings =
