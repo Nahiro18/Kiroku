@@ -2065,8 +2065,7 @@ class ExoplayerView :
             ?.getTrackGroups(TRACK_TYPE_VIDEO)
             ?.let { groups ->
                 for (g in 0 until groups.length) {
-                    val params = trackSelector.parameters
-                    val override = params.getTrackSelectionOverride(g, TRACK_TYPE_VIDEO)
+                    val override = trackSelector.getSelectionOverride(g, TRACK_TYPE_VIDEO)
                     if (override != null) return@let override.tracks.firstOrNull()
                 }
                 -1
