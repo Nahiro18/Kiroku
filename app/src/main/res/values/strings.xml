@@ -1143,7 +1143,7 @@ Non quae tempore quo provident laudantium qui illo dolor vel quia dolor et exerc
     <string name="auto_scroll">Auto Scroll</string>
     <string name="auto_scroll_speed">Auto Scroll Speed</string>
     <string name="ai_person_toggle">AI Person Crop</string>
-    <string name="ai_person_toggle_desc">Crops the largest, most centered person before searching. Turns off after each search.</string>
+    <string name="ai_person_toggle_desc">Detects the main person, searches both the crop and the full frame, and keeps the best match. Turns off after each search.</string>
     <string name="ai_person_model">AI Person Detector</string>
     <string name="ai_person_model_desc">Anime person detection model. Size: ~3 MB. Runs on CPU only, when enabled and you press Search.</string>
     <string name="ai_person_downloaded">Model ready</string>

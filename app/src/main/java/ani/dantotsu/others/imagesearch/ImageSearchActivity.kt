@@ -135,14 +135,14 @@ class ImageSearchActivity : AppCompatActivity() {
         binding.progressBar.visibility = View.VISIBLE
 
         if (!usePersonCrop) {
-            sendSearch(imageBytes)
+            sendSearch(imageBytes, null)
             return
         }
 
         lifecycleScope.launch(Dispatchers.IO) {
             val results = detectPerson(bitmap)
             val crop = bestCrop(bitmap, results)
-            val searchBytes = if (crop != null) bitmapToJpeg(crop) else imageBytes
+            val cropBytes = crop?.let { bitmapToJpeg(it) }
 
             runOnUiThread {
                 if (crop != null) {
@@ -152,19 +152,25 @@ class ImageSearchActivity : AppCompatActivity() {
                     toast(getString(R.string.ai_person_no_match))
                 }
             }
-            sendSearch(searchBytes)
+            sendSearch(cropBytes, imageBytes)
         }
     }
 
-    private fun sendSearch(bytes: ByteArray?) {
+    private fun sendSearch(bytes: ByteArray?, fallbackBytes: ByteArray?) {
         if (bytes == null || bytes.isEmpty()) {
             finishSearch()
             toast(getString(R.string.error_loading_image))
             return
         }
 
+        val streams = if (fallbackBytes != null && fallbackBytes.isNotEmpty()) {
+            arrayOf(ByteArrayInputStream(bytes), ByteArrayInputStream(fallbackBytes))
+        } else {
+            arrayOf(ByteArrayInputStream(bytes))
+        }
+
         lifecycleScope.launch(Dispatchers.IO) {
-            viewModel.analyzeImage(ByteArrayInputStream(bytes))
+            viewModel.analyzeImage(*streams)
             runOnUiThread { finishSearch() }
         }
     }
