@@ -6,12 +6,9 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
-import android.view.ViewGroup
-import android.widget.Button
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -24,7 +21,6 @@ import ani.dantotsu.connections.anilist.Anilist
 import ani.dantotsu.databinding.ActivityImageSearchBinding
 import ani.dantotsu.initActivity
 import ani.dantotsu.media.MediaDetailsActivity
-import ani.dantotsu.navBarHeight
 import ani.dantotsu.themes.ThemeManager
 import ani.dantotsu.toast
 import com.canhub.cropper.CropImageContract
@@ -32,6 +28,7 @@ import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
 
@@ -41,7 +38,6 @@ class ImageSearchActivity : AppCompatActivity() {
     private var useYolo = false
     private var originalBitmap: Bitmap? = null
     private var imageBytes: ByteArray? = null
-    private var searchButton: Button? = null
     private var isSearching = false
 
     private val cropImageLauncher =
@@ -144,16 +140,20 @@ class ImageSearchActivity : AppCompatActivity() {
         return output.toByteArray()
     }
 
-    private fun performSearch() {
+    private fun onSearchPressed() {
         if (isSearching) return
-        val bitmap = originalBitmap
-        if (bitmap == null) {
-            toast(getString(R.string.error_loading_image))
+        if (originalBitmap == null) {
+            pickImage()
             return
         }
+        performSearch()
+    }
 
+    private fun performSearch() {
+        val bitmap = originalBitmap ?: return
         isSearching = true
-        searchButton?.isEnabled = false
+        binding.searchButton.isEnabled = false
+        binding.yoloToggle.isEnabled = false
         binding.progressBar.visibility = View.VISIBLE
 
         if (!useYolo) {
@@ -181,33 +181,34 @@ class ImageSearchActivity : AppCompatActivity() {
 
     private fun sendSearch(bytes: ByteArray?) {
         if (bytes == null || bytes.isEmpty()) {
-            isSearching = false
-            searchButton?.isEnabled = true
-            binding.progressBar.visibility = View.GONE
+            finishSearch()
             toast(getString(R.string.error_loading_image))
             return
         }
 
         lifecycleScope.launch(Dispatchers.IO) {
-            viewModel.analyzeImage(java.io.ByteArrayInputStream(bytes))
-            runOnUiThread {
-                isSearching = false
-                searchButton?.isEnabled = true
-                binding.progressBar.visibility = View.GONE
-                if (useYolo) {
-                    useYolo = false
-                    binding.yoloToggle.isChecked = false
-                }
-            }
+            viewModel.analyzeImage(ByteArrayInputStream(bytes))
+            runOnUiThread { finishSearch() }
+        }
+    }
+
+    private fun finishSearch() {
+        isSearching = false
+        binding.searchButton.isEnabled = true
+        binding.yoloToggle.isEnabled = true
+        binding.progressBar.visibility = View.GONE
+        if (useYolo) {
+            useYolo = false
+            binding.yoloToggle.isChecked = false
         }
     }
 
     private fun displayImage(bitmap: Bitmap) {
         binding.imagePreview.setImageBitmap(bitmap)
         binding.imagePreview.visibility = View.VISIBLE
-        binding.uploadImage.text = getString(R.string.search_again)
         binding.yoloContainer.visibility = View.VISIBLE
-        binding.searchButtonContainer.visibility = View.VISIBLE
+        binding.searchButton.isEnabled = true
+        binding.yoloToggle.isEnabled = true
         binding.progressBar.visibility = View.GONE
 
         updateYoloToggleLabel()
@@ -223,8 +224,6 @@ class ImageSearchActivity : AppCompatActivity() {
                 useYolo = isChecked
             }
         }
-
-        setupSearchButton()
     }
 
     private fun updateYoloToggleLabel() {
@@ -235,21 +234,23 @@ class ImageSearchActivity : AppCompatActivity() {
         binding.yoloToggle.text = getString(R.string.use_yolo_segmentation_with_model, modelName)
     }
 
-    private fun setupSearchButton() {
-        if (searchButton == null) {
-            searchButton = Button(this).apply {
-                text = getString(R.string.search)
-                layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                )
-                setBackgroundColor(getColor(android.R.color.holo_blue_dark))
-                setTextColor(getColor(android.R.color.white))
-                textSize = 16f
-                setOnClickListener { performSearch() }
-            }
-            binding.searchButtonContainer.addView(searchButton!!)
-        }
+    private fun pickImage() {
+        viewModel.clearResults()
+        binding.recyclerView.adapter = null
+        binding.imagePreview.setImageBitmap(null)
+        binding.imagePreview.visibility = View.GONE
+        binding.yoloContainer.visibility = View.GONE
+        binding.progressBar.visibility = View.GONE
+        binding.yoloToggle.setOnCheckedChangeListener(null)
+        binding.yoloToggle.isChecked = false
+        useYolo = false
+        isSearching = false
+        binding.searchButton.isEnabled = true
+        binding.yoloToggle.isEnabled = true
+        originalBitmap = null
+        imageBytes = null
+        YoloSegmenter.release()
+        imageSelectionLauncher.launch("image/*")
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -259,25 +260,9 @@ class ImageSearchActivity : AppCompatActivity() {
         ThemeManager(this).applyTheme()
         binding = ActivityImageSearchBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        binding.uploadImage.updateLayoutParams<ViewGroup.MarginLayoutParams> {
-            bottomMargin = navBarHeight
-        }
-        binding.uploadImage.setOnClickListener {
-            viewModel.clearResults()
-            binding.imagePreview.setImageBitmap(null)
-            binding.imagePreview.visibility = View.GONE
-            binding.yoloContainer.visibility = View.GONE
-            binding.searchButtonContainer.visibility = View.GONE
-            binding.progressBar.visibility = View.GONE
-            binding.yoloToggle.isChecked = false
-            useYolo = false
-            isSearching = false
-            searchButton?.isEnabled = true
-            originalBitmap = null
-            imageBytes = null
-            YoloSegmenter.release()
-            imageSelectionLauncher.launch("image/*")
-        }
+
+        binding.searchButton.setOnClickListener { onSearchPressed() }
+        binding.imagePreview.setOnClickListener { pickImage() }
         binding.imageSearchTitle.setOnClickListener {
             onBackPressedDispatcher.onBackPressed()
         }
@@ -289,6 +274,7 @@ class ImageSearchActivity : AppCompatActivity() {
         binding.yoloToggle.isChecked = false
         useYolo = false
         binding.progressBar.visibility = View.GONE
+        binding.searchButton.isEnabled = true
     }
 
     private fun displayResult(result: ImageSearchViewModel.SearchResult) {

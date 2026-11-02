@@ -36,10 +36,9 @@ class YoloSegmenter private constructor(
                     when (delegate) {
                         YoloModelManager.Delegate.GPU -> {
                             try {
-                                val gpuDelegate = GpuDelegate()
-                                addDelegate(gpuDelegate)
-                            } catch (e: Exception) {
-                                Log.w("YoloSegmenter", "GPU delegate failed, falling back to CPU: ${e.message}")
+                                addDelegate(GpuDelegate())
+                            } catch (t: Throwable) {
+                                Log.w("YoloSegmenter", "GPU delegate unavailable, using CPU: ${t.message}")
                             }
                         }
                         YoloModelManager.Delegate.CPU -> {
@@ -49,8 +48,8 @@ class YoloSegmenter private constructor(
                 val interpreter = Interpreter(modelFile, options)
                 instance = YoloSegmenter(interpreter, modelVersion, delegate)
                 instance
-            } catch (e: Exception) {
-                Log.e("YoloSegmenter", "Failed to initialize ${modelVersion}@${delegate}: ${e.message}")
+            } catch (t: Throwable) {
+                Log.e("YoloSegmenter", "Failed to initialize ${modelVersion}@${delegate}: ${t.message}")
                 null
             }
         }
