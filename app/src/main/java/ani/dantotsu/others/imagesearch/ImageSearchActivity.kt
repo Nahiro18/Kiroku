@@ -146,11 +146,11 @@ class ImageSearchActivity : AppCompatActivity() {
                 val bitmap = originalBitmap ?: return@launch
                 val success = runYoloSegmentation(bitmap)
                 if (success) {
-                    withContext(Dispatchers.Main.immediate) {
+                    withContext(Dispatchers.Main) {
                         drawSegmentationOverlay(originalBitmap!!, yoloSegmenter!!.segment(originalBitmap!!))
                     }
                 }
-                withContext(Dispatchers.Main.immediate) {
+                withContext(Dispatchers.Main) {
                     performTraceMoeSearch()
                 }
             }
@@ -169,7 +169,7 @@ class ImageSearchActivity : AppCompatActivity() {
         val stream = java.io.ByteArrayInputStream(imageBytes!!)
         lifecycleScope.launch(Dispatchers.IO) {
             viewModel.analyzeImage(stream)
-            withContext(Dispatchers.Main.immediate) {
+            withContext(Dispatchers.Main) {
                 isSearching = false
                 searchButton?.isEnabled = true
             }
@@ -223,7 +223,7 @@ class ImageSearchActivity : AppCompatActivity() {
         val stream = java.io.ByteArrayInputStream(imageBytes!!)
         lifecycleScope.launch(Dispatchers.IO) {
             viewModel.analyzeImage(stream)
-            withContext(Dispatchers.Main.immediate) {
+            withContext(Dispatchers.Main) {
                 isSearching = false
                 searchButton?.isEnabled = true
             }
@@ -257,11 +257,11 @@ class ImageSearchActivity : AppCompatActivity() {
                 val bitmap = originalBitmap ?: return@launch
                 val success = runYoloSegmentation(bitmap)
                 if (success) {
-                    withContext(Dispatchers.Main.immediate) {
+                    withContext(Dispatchers.Main) {
                         drawSegmentationOverlay(originalBitmap!!, yoloSegmenter!!.segment(originalBitmap!!))
                     }
                 }
-                withContext(Dispatchers.Main.immediate) {
+                withContext(Dispatchers.Main) {
                     performTraceMoeSearch()
                 }
             }
@@ -317,11 +317,11 @@ class ImageSearchActivity : AppCompatActivity() {
                 val bitmap = originalBitmap ?: return@launch
                 val success = runYoloSegmentation(bitmap)
                 if (success) {
-                    withContext(Dispatchers.Main.immediate) {
+                    withContext(Dispatchers.Main) {
                         drawSegmentationOverlay(originalBitmap!!, yoloSegmenter!!.segment(originalBitmap!!))
                     }
                 }
-                withContext(Dispatchers.Main.immediate) {
+                withContext(Dispatchers.Main) {
                     performTraceMoeSearch()
                 }
             }
