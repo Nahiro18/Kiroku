@@ -140,7 +140,9 @@ class CommentsFragment : Fragment() {
 
         lifecycleScope.launch {
             if (CommentsAPI.authToken == null) {
-                CommentsAPI.fetchAuthToken(activity)
+                withContext(Dispatchers.IO) {
+                    CommentsAPI.fetchAuthToken(activity)
+                }
             }
             if (CommentsAPI.authToken != null) {
                 val commentId = arguments?.getInt("commentId")
