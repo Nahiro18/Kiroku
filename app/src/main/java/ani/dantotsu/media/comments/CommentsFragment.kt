@@ -93,8 +93,8 @@ class CommentsFragment : Fragment() {
         limitTextWatcher?.let { activity.binding.commentInput.removeTextChangedListener(it) }
         activity.binding.commentInput.onFocusChangeListener = null
         activity.binding.commentLabel.setOnClickListener(null)
-        activity.binding.commentSpoiler.setOnClickListener(null)
-        activity.binding.commentGif.setOnClickListener(null)
+        activity.binding.commentSpoiler?.setOnClickListener(null)
+        activity.binding.commentGif?.setOnClickListener(null)
         activity.binding.commentSend.setOnClickListener(null)
         markwonTextWatcher = null
         limitTextWatcher = null
@@ -330,8 +330,8 @@ class CommentsFragment : Fragment() {
                 anim.doOnEnd {
                     activity.binding.commentLabel.visibility = View.VISIBLE
                     activity.binding.commentSend.visibility = View.VISIBLE
-                    activity.binding.commentSpoiler.visibility = View.VISIBLE
-                    activity.binding.commentGif.visibility = View.VISIBLE
+                    activity.binding.commentSpoiler?.visibility = View.VISIBLE
+                    activity.binding.commentGif?.visibility = View.VISIBLE
                     activity.binding.commentLabel.animate().translationX(0f).setDuration(300)
                         .start()
                     activity.binding.commentSend.animate().translationX(0f).setDuration(300).start()
@@ -383,7 +383,7 @@ class CommentsFragment : Fragment() {
             }
         }
 
-        activity.binding.commentCurrentProgress.setOnClickListener {
+        binding.commentCurrentProgress.setOnClickListener {
             val progress = userProgress ?: return@setOnClickListener
             if (progress <= 0) return@setOnClickListener
             if (filterTag != null && filterTag != progress) {
@@ -398,7 +398,7 @@ class CommentsFragment : Fragment() {
             }
         }
 
-        activity.binding.commentCurrentProgress.setOnLongClickListener {
+        binding.commentCurrentProgress.setOnLongClickListener {
             val progress = userProgress ?: return@setOnLongClickListener false
             if (progress <= 0) return@setOnLongClickListener false
             val total = totalEpisodesOrChapters ?: progress
@@ -422,16 +422,16 @@ class CommentsFragment : Fragment() {
             true
         }
 
-        activity.binding.commentSpoiler.setOnClickListener {
+        activity.binding.commentSpoiler?.setOnClickListener {
             isSpoilerMode = !isSpoilerMode
-            activity.binding.commentSpoiler.alpha = if (isSpoilerMode) 1f else 0.5f
-            activity.binding.commentSpoiler.setImageResource(
+            activity.binding.commentSpoiler?.alpha = if (isSpoilerMode) 1f else 0.5f
+            activity.binding.commentSpoiler?.setImageResource(
                 if (isSpoilerMode) R.drawable.format_spoiler_24
                 else R.drawable.ic_round_remove_red_eye_24
             )
         }
 
-        activity.binding.commentGif.setOnClickListener {
+        activity.binding.commentGif?.setOnClickListener {
             val gifPicker = GifPickerBottomDialog.newInstance()
             gifPicker.setOnGifSelectedListener { gifUrl ->
                 val currentText = activity.binding.commentInput.text.toString()
@@ -934,8 +934,8 @@ class CommentsFragment : Fragment() {
         if (isSpoilerMode) {
             commentText = "||$commentText||"
             isSpoilerMode = false
-            activity.binding.commentSpoiler.alpha = 0.5f
-            activity.binding.commentSpoiler.setImageResource(R.drawable.ic_round_remove_red_eye_24)
+            activity.binding.commentSpoiler?.alpha = 0.5f
+            activity.binding.commentSpoiler?.setImageResource(R.drawable.ic_round_remove_red_eye_24)
         }
 
         activity.binding.commentInput.text.clear()
