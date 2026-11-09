@@ -75,6 +75,9 @@ class CommentItem(
             } else {
                 commentUserTagLayout.visibility = View.VISIBLE
                 commentUserTag.text = comment.tag.toString()
+                commentUserTagLayout.setOnClickListener {
+                    commentsFragment.onTagClicked(comment.tag.toString())
+                }
             }
             replying(isReplying) //sets default text
             editing(isEditing)

@@ -15,6 +15,7 @@ import androidx.appcompat.widget.PopupMenu
 import androidx.core.animation.doOnEnd
 import androidx.core.content.res.ResourcesCompat
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import ani.dantotsu.R
@@ -26,7 +27,14 @@ import ani.dantotsu.connections.comments.CommentsAPI
 import ani.dantotsu.databinding.DialogEdittextBinding
 import ani.dantotsu.databinding.FragmentCommentsBinding
 import ani.dantotsu.loadImage
+import ani.dantotsu.media.Media
 import ani.dantotsu.media.MediaDetailsActivity
+import ani.dantotsu.media.MediaDetailsViewModel
+import ani.dantotsu.media.MediaNameAdapter
+import ani.dantotsu.media.Selected
+import ani.dantotsu.media.anime.getEpisode
+import ani.dantotsu.media.manga.MangaChapter
+import ani.dantotsu.media.manga.mangareader.ChapterLoaderDialog
 import ani.dantotsu.setBaseline
 import ani.dantotsu.settings.saving.PrefManager
 import ani.dantotsu.settings.saving.PrefName
@@ -59,6 +67,14 @@ class CommentsFragment : Fragment() {
     private var backgroundColor: Int = 0
     var pagesLoaded = 1
     var totalPages = 1
+    private var userProgress: Int? = null
+    private var totalEpisodesOrChapters: Int? = null
+    private var isAnime: Boolean = true
+    private var commentsLoaded = false
+    private var isAutoFilterOn = false
+    private var isSpoilerMode = false
+    private var markwonTextWatcher: TextWatcher? = null
+    private var limitTextWatcher: TextWatcher? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -68,6 +84,20 @@ class CommentsFragment : Fragment() {
         binding = FragmentCommentsBinding.inflate(inflater, container, false)
         binding.commentsLayout.isNestedScrollingEnabled = true
         return binding.root
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        binding.commentsList.adapter = null
+        markwonTextWatcher?.let { activity.binding.commentInput.removeTextChangedListener(it) }
+        limitTextWatcher?.let { activity.binding.commentInput.removeTextChangedListener(it) }
+        activity.binding.commentInput.onFocusChangeListener = null
+        activity.binding.commentLabel.setOnClickListener(null)
+        activity.binding.commentSpoiler.setOnClickListener(null)
+        activity.binding.commentGif.setOnClickListener(null)
+        activity.binding.commentSend.setOnClickListener(null)
+        markwonTextWatcher = null
+        limitTextWatcher = null
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -93,11 +123,9 @@ class CommentsFragment : Fragment() {
 
         activity.binding.commentUserAvatar.loadImage(Anilist.avatar)
         val markwonEditor = MarkwonEditor.create(markwon)
-        activity.binding.commentInput.addTextChangedListener(
-            MarkwonEditorTextWatcher.withProcess(
-                markwonEditor
-            )
-        )
+        val watcher = MarkwonEditorTextWatcher.withProcess(markwonEditor)
+        markwonTextWatcher = watcher
+        activity.binding.commentInput.addTextChangedListener(watcher)
 
         binding.commentsRefresh.setOnRefreshListener {
             lifecycleScope.launch {
@@ -110,17 +138,9 @@ class CommentsFragment : Fragment() {
         binding.commentsList.adapter = adapter
         binding.commentsList.layoutManager = LinearLayoutManager(activity)
 
-        if (CommentsAPI.authToken != null) {
-            lifecycleScope.launch {
-                val commentId = arguments?.getInt("commentId")
-                if (commentId != null && commentId > 0) {
-                    loadSingleComment(commentId)
-                } else {
-                    loadAndDisplayComments()
-                }
-            }
-        } else {
-            activity.binding.commentMessageContainer.visibility = View.GONE
+        val model: MediaDetailsViewModel by activityViewModels()
+        model.getMedia().observe(viewLifecycleOwner) { newMedia ->
+            handleMediaUpdate(newMedia)
         }
 
         binding.commentSort.setOnClickListener { sortView ->
@@ -188,17 +208,19 @@ class CommentsFragment : Fragment() {
                 setPosButton("OK") {
                     val text = customView.dialogEditText.text.toString()
                     filterTag = text.toIntOrNull()
+                    updateCurrentProgressButton()
                     lifecycleScope.launch {
                         loadAndDisplayComments()
                     }
                 }
                 setNeutralButton("Clear") {
                     filterTag = null
+                    updateCurrentProgressButton()
                     lifecycleScope.launch {
                         loadAndDisplayComments()
                     }
                 }
-                setNegButton("Cancel") { filterTag = null }
+                setNegButton("Cancel") {}
                 show()
             }
         }
@@ -247,7 +269,7 @@ class CommentsFragment : Fragment() {
                         CommentsAPI.getCommentsForId(
                             mediaId,
                             pagesLoaded + 1,
-                            filterTag,
+                            getEffectiveFilter(),
                             PrefManager.getVal(PrefName.CommentSortOrder, "newest")
                         )
                     }
@@ -270,7 +292,7 @@ class CommentsFragment : Fragment() {
                 }
             })
 
-        activity.binding.commentInput.addTextChangedListener(object : TextWatcher {
+        val limitWatcher = object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
             }
 
@@ -286,7 +308,9 @@ class CommentsFragment : Fragment() {
                     snackString("Comment cannot be longer than 300 characters")
                 }
             }
-        })
+        }
+        limitTextWatcher = limitWatcher
+        activity.binding.commentInput.addTextChangedListener(limitWatcher)
 
         activity.binding.commentInput.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
@@ -306,6 +330,8 @@ class CommentsFragment : Fragment() {
                 anim.doOnEnd {
                     activity.binding.commentLabel.visibility = View.VISIBLE
                     activity.binding.commentSend.visibility = View.VISIBLE
+                    activity.binding.commentSpoiler.visibility = View.VISIBLE
+                    activity.binding.commentGif.visibility = View.VISIBLE
                     activity.binding.commentLabel.animate().translationX(0f).setDuration(300)
                         .start()
                     activity.binding.commentSend.animate().translationX(0f).setDuration(300).start()
@@ -357,6 +383,66 @@ class CommentsFragment : Fragment() {
             }
         }
 
+        activity.binding.commentCurrentProgress.setOnClickListener {
+            val progress = userProgress ?: return@setOnClickListener
+            if (progress <= 0) return@setOnClickListener
+            if (filterTag != null && filterTag != progress) {
+                filterTag = null
+                isAutoFilterOn = false
+            } else {
+                isAutoFilterOn = !isAutoFilterOn
+            }
+            updateCurrentProgressButton()
+            lifecycleScope.launch {
+                loadAndDisplayComments()
+            }
+        }
+
+        activity.binding.commentCurrentProgress.setOnLongClickListener {
+            val progress = userProgress ?: return@setOnLongClickListener false
+            if (progress <= 0) return@setOnLongClickListener false
+            val total = totalEpisodesOrChapters ?: progress
+            val maxEp = maxOf(total, progress)
+            val label = if (isAnime) "Ep" else "Ch"
+
+            val items = Array(maxEp) { i -> "$label ${i + 1}" }
+            val currentSelection = if (filterTag != null) filterTag!! - 1 else progress - 1
+            activity.customAlertDialog().apply {
+                setTitle("Filter by ${if (isAnime) "Episode" else "Chapter"}")
+                singleChoiceItems(items, currentSelection) { selected ->
+                    filterTag = selected + 1
+                    isAutoFilterOn = true
+                    updateCurrentProgressButton()
+                    lifecycleScope.launch {
+                        loadAndDisplayComments()
+                    }
+                }
+                show()
+            }
+            true
+        }
+
+        activity.binding.commentSpoiler.setOnClickListener {
+            isSpoilerMode = !isSpoilerMode
+            activity.binding.commentSpoiler.alpha = if (isSpoilerMode) 1f else 0.5f
+            activity.binding.commentSpoiler.setImageResource(
+                if (isSpoilerMode) R.drawable.format_spoiler_24
+                else R.drawable.ic_round_remove_red_eye_24
+            )
+        }
+
+        activity.binding.commentGif.setOnClickListener {
+            val gifPicker = GifPickerBottomDialog.newInstance()
+            gifPicker.setOnGifSelectedListener { gifUrl ->
+                val currentText = activity.binding.commentInput.text.toString()
+                val gifMarkdown = "![gif]($gifUrl)"
+                val newText = if (currentText.isEmpty()) gifMarkdown else "$currentText\n$gifMarkdown"
+                activity.binding.commentInput.setText(newText)
+                activity.binding.commentInput.setSelection(newText.length)
+            }
+            gifPicker.show(childFragmentManager, "gifPicker")
+        }
+
         activity.binding.commentSend.setOnClickListener {
             if (CommentsAPI.isBanned) {
                 snackString("You are banned from commenting :(")
@@ -366,7 +452,33 @@ class CommentsFragment : Fragment() {
             if (PrefManager.getVal(PrefName.FirstComment)) {
                 showCommentRulesDialog()
             } else {
-                processComment()
+                showTagDialogThenProcess()
+            }
+        }
+    }
+
+    private fun handleMediaUpdate(newMedia: Media?) {
+        if (newMedia == null || newMedia.id == 0) return
+        isAnime = newMedia.anime != null
+        userProgress = newMedia.userProgress
+        totalEpisodesOrChapters =
+            if (isAnime) newMedia.anime?.totalEpisodes else newMedia.manga?.totalChapters
+        updateCurrentProgressButton()
+
+        if (!commentsLoaded || newMedia.id != mediaId) {
+            this.mediaId = newMedia.id
+            commentsLoaded = true
+            if (CommentsAPI.authToken != null) {
+                lifecycleScope.launch {
+                    val commentId = arguments?.getInt("commentId")
+                    if (commentId != null && commentId > 0) {
+                        loadSingleComment(commentId)
+                    } else {
+                        loadAndDisplayComments()
+                    }
+                }
+            } else {
+                activity.binding.commentMessageContainer.visibility = View.GONE
             }
         }
     }
@@ -386,21 +498,227 @@ class CommentsFragment : Fragment() {
         NONE, EDIT, REPLY
     }
 
-    /**
-     * Loads and displays the comments
-     * Called when the activity is created
-     * Or when the user refreshes the comments
-     */
+    private fun getEffectiveFilter(): Int? = when {
+        filterTag != null -> filterTag
+        isAutoFilterOn && userProgress != null && userProgress!! > 0 -> userProgress
+        else -> null
+    }
+
+    private fun updateCurrentProgressButton() {
+        val progress = userProgress ?: 0
+        if (progress <= 0) {
+            binding.commentCurrentProgress.visibility = View.GONE
+            return
+        }
+        val label = if (isAnime) "Ep" else "Ch"
+        val isManualFilter = filterTag != null && filterTag != progress
+        val activeFilter = filterTag ?: progress
+
+        val badge = binding.commentCurrentProgress
+        when {
+            isManualFilter -> {
+                badge.text = "$label $activeFilter  ✕"
+                badge.alpha = 1f
+                val primaryColor = resolveColorAttr(androidx.appcompat.R.attr.colorPrimary)
+                badge.setTextColor(
+                    resolveColorAttr(com.google.android.material.R.attr.colorOnPrimary)
+                )
+                badge.background = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                    cornerRadius = 16f * resources.displayMetrics.density
+                    setColor(primaryColor)
+                }
+            }
+            isAutoFilterOn -> {
+                badge.text = "$label $progress"
+                badge.alpha = 1f
+                badge.setTextColor(resolveColorAttr(android.R.attr.textColorPrimary))
+                badge.background = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                    cornerRadius = 16f * resources.displayMetrics.density
+                    setColor(android.graphics.Color.TRANSPARENT)
+                    setStroke(
+                        (1f * resources.displayMetrics.density).toInt(),
+                        android.graphics.Color.WHITE
+                    )
+                }
+            }
+            else -> {
+                badge.text = "$label $progress"
+                badge.alpha = 0.33f
+                badge.setTextColor(resolveColorAttr(android.R.attr.textColorPrimary))
+                badge.background = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                    cornerRadius = 16f * resources.displayMetrics.density
+                    setColor(android.graphics.Color.TRANSPARENT)
+                    setStroke(
+                        (1f * resources.displayMetrics.density).toInt(),
+                        android.graphics.Color.WHITE
+                    )
+                }
+            }
+        }
+        badge.visibility = View.VISIBLE
+    }
+
+    private fun resolveColorAttr(attr: Int): Int {
+        val typedArray = activity.obtainStyledAttributes(intArrayOf(attr))
+        val color = typedArray.getColor(0, 0)
+        typedArray.recycle()
+        return color
+    }
+
+    private fun showTagDialogThenProcess() {
+        if (interactionState == InteractionState.EDIT) {
+            processComment()
+            return
+        }
+
+        val commentText = activity.binding.commentInput.text.toString()
+        if (commentText.isEmpty()) {
+            snackString("Comment cannot be empty")
+            return
+        }
+
+        val label = if (isAnime) "episode" else "chapter"
+        val total = totalEpisodesOrChapters
+        val defaultProgress = userProgress ?: 0
+
+        activity.customAlertDialog().apply {
+            val customView = DialogEdittextBinding.inflate(layoutInflater)
+            if (defaultProgress > 0) {
+                customView.dialogEditText.setText(defaultProgress.toString())
+            }
+            customView.dialogEditText.hint = if (total != null && total > 0)
+                "1–$total"
+            else
+                "$label number"
+            setTitle("Tag $label (optional)")
+            setCustomView(customView.root)
+            setPosButton("Send") {
+                val entered = customView.dialogEditText.text.toString().toIntOrNull()
+                if (entered != null && total != null && total > 0 && entered > total) {
+                    snackString("Tag cannot exceed total ${label}s ($total)")
+                    tag = null
+                } else {
+                    tag = entered
+                }
+                activity.binding.commentLabel.background = if (tag != null)
+                    ResourcesCompat.getDrawable(resources, R.drawable.ic_label_24, null)
+                else
+                    ResourcesCompat.getDrawable(resources, R.drawable.ic_label_off_24, null)
+                processComment()
+            }
+            setNeutralButton("No tag") {
+                tag = null
+                activity.binding.commentLabel.background =
+                    ResourcesCompat.getDrawable(resources, R.drawable.ic_label_off_24, null)
+                processComment()
+            }
+            setNegButton(R.string.cancel) {}
+            show()
+        }
+    }
+
+    fun onTagClicked(tag: String) {
+        val model: MediaDetailsViewModel by activityViewModels()
+        val currentMedia = model.getMedia().value ?: return
+
+        if (isAnime) {
+            handleAnimeTagClick(model, currentMedia, tag)
+            return
+        }
+
+        val selected = currentMedia.selected ?: run {
+            snackString("Please select an extension first")
+            return
+        }
+        val sourceIndex = selected.sourceIndex
+
+        if (currentMedia.format == "NOVEL") {
+            snackString("Open novel chapters from the chapter list")
+            return
+        }
+        handleMangaTagClick(model, currentMedia, selected, sourceIndex, tag)
+    }
+
+    private fun handleAnimeTagClick(model: MediaDetailsViewModel, currentMedia: Media, tag: String) {
+        val ep = currentMedia.anime?.episodes?.getEpisode(tag)
+        if (ep != null) {
+            model.onEpisodeClick(currentMedia, tag, childFragmentManager, true)
+        } else {
+            snackString("Episode $tag not found for this provider")
+        }
+    }
+
+    private fun handleMangaTagClick(
+        model: MediaDetailsViewModel,
+        currentMedia: Media,
+        selected: Selected,
+        sourceIndex: Int,
+        tag: String
+    ) {
+        val manga = currentMedia.manga ?: run {
+            snackString("Manga not available")
+            return
+        }
+        val cachedChapters = model.getMangaChapters().value?.get(sourceIndex)
+        if (manga.chapters.isNullOrEmpty() && cachedChapters != null) {
+            manga.chapters = cachedChapters
+        }
+
+        val chp = manga.chapters?.values?.find { chapterMatchesTag(it.number, tag) }
+        if (chp != null) {
+            openMangaChapter(model, currentMedia, selected, chp)
+        } else {
+            lifecycleScope.launch {
+                snackString("Loading chapter for tag...")
+                model.loadMangaChapters(currentMedia, sourceIndex)
+                val refreshedChapters = model.getMangaChapters().value?.get(sourceIndex)
+                if (refreshedChapters != null) {
+                    manga.chapters = refreshedChapters
+                }
+                val foundChp = manga.chapters?.values?.find { chapterMatchesTag(it.number, tag) }
+                if (foundChp != null) {
+                    openMangaChapter(model, currentMedia, selected, foundChp)
+                } else {
+                    snackString("Chapter $tag not found for this provider")
+                }
+            }
+        }
+    }
+
+    private fun openMangaChapter(
+        model: MediaDetailsViewModel,
+        currentMedia: Media,
+        selected: Selected,
+        chp: MangaChapter
+    ) {
+        model.continueMedia = false
+        currentMedia.manga?.selectedChapter = chp
+        model.saveSelected(currentMedia.id, selected)
+        ChapterLoaderDialog.newInstance(chp, true).show(childFragmentManager, "dialog")
+    }
+
+    private fun chapterMatchesTag(chapterNumber: String, tag: String): Boolean {
+        if (chapterNumber == tag) return true
+
+        val chapterValue = MediaNameAdapter.findChapterNumber(chapterNumber)
+        val tagValue = MediaNameAdapter.findChapterNumber(tag)
+        return chapterValue != null && tagValue != null && chapterValue == tagValue
+    }
+
     private suspend fun loadAndDisplayComments() {
         binding.commentsProgressBar.visibility = View.VISIBLE
         binding.commentsList.visibility = View.GONE
         adapter.clear()
         section.clear()
+        pagesLoaded = 1
 
         val comments = withContext(Dispatchers.IO) {
             CommentsAPI.getCommentsForId(
                 mediaId,
-                tag = filterTag,
+                tag = getEffectiveFilter(),
                 sort = PrefManager.getVal(PrefName.CommentSortOrder, "newest")
             )
         }
@@ -599,7 +917,7 @@ class CommentsFragment : Fragment() {
                 )
             setPosButton("I Understand") {
                 PrefManager.setVal(PrefName.FirstComment, false)
-                processComment()
+                showTagDialogThenProcess()
             }
             setNegButton(R.string.cancel)
             show()
@@ -607,18 +925,26 @@ class CommentsFragment : Fragment() {
     }
 
     private fun processComment() {
-        val commentText = activity.binding.commentInput.text.toString()
+        var commentText = activity.binding.commentInput.text.toString()
         if (commentText.isEmpty()) {
             snackString("Comment cannot be empty")
             return
         }
 
+        if (isSpoilerMode) {
+            commentText = "||$commentText||"
+            isSpoilerMode = false
+            activity.binding.commentSpoiler.alpha = 0.5f
+            activity.binding.commentSpoiler.setImageResource(R.drawable.ic_round_remove_red_eye_24)
+        }
+
         activity.binding.commentInput.text.clear()
+        val finalText = commentText
         lifecycleScope.launch {
             if (interactionState == InteractionState.EDIT) {
-                handleEditComment(commentText)
+                handleEditComment(finalText)
             } else {
-                handleNewComment(commentText)
+                handleNewComment(finalText)
                 tag = null
                 activity.binding.commentLabel.background = ResourcesCompat.getDrawable(
                     resources,
