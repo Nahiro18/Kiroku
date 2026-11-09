@@ -70,7 +70,6 @@ class CommentsFragment : Fragment() {
     private var userProgress: Int? = null
     private var totalEpisodesOrChapters: Int? = null
     private var isAnime: Boolean = true
-    private var commentsLoaded = false
     private var isAutoFilterOn = false
     private var isSpoilerMode = false
     private var markwonTextWatcher: TextWatcher? = null
@@ -137,6 +136,24 @@ class CommentsFragment : Fragment() {
 
         binding.commentsList.adapter = adapter
         binding.commentsList.layoutManager = LinearLayoutManager(activity)
+        isAnime = activity.anime
+
+        lifecycleScope.launch {
+            if (CommentsAPI.authToken == null) {
+                CommentsAPI.fetchAuthToken(activity)
+            }
+            if (CommentsAPI.authToken != null) {
+                val commentId = arguments?.getInt("commentId")
+                if (commentId != null && commentId > 0) {
+                    loadSingleComment(commentId)
+                } else {
+                    loadAndDisplayComments()
+                }
+            } else {
+                binding.commentsProgressBar.visibility = View.GONE
+                activity.binding.commentMessageContainer.visibility = View.GONE
+            }
+        }
 
         val model: MediaDetailsViewModel by activityViewModels()
         model.getMedia().observe(viewLifecycleOwner) { newMedia ->
@@ -464,23 +481,6 @@ class CommentsFragment : Fragment() {
         totalEpisodesOrChapters =
             if (isAnime) newMedia.anime?.totalEpisodes else newMedia.manga?.totalChapters
         updateCurrentProgressButton()
-
-        if (!commentsLoaded || newMedia.id != mediaId) {
-            this.mediaId = newMedia.id
-            commentsLoaded = true
-            if (CommentsAPI.authToken != null) {
-                lifecycleScope.launch {
-                    val commentId = arguments?.getInt("commentId")
-                    if (commentId != null && commentId > 0) {
-                        loadSingleComment(commentId)
-                    } else {
-                        loadAndDisplayComments()
-                    }
-                }
-            } else {
-                activity.binding.commentMessageContainer.visibility = View.GONE
-            }
-        }
     }
 
     @SuppressLint("NotifyDataSetChanged")
