@@ -1,58 +1,65 @@
 package eu.kanade.tachiyomi.animesource.model
 
-import android.net.Uri
 import eu.kanade.tachiyomi.network.ProgressListener
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import okhttp3.Headers
-import rx.subjects.Subject
 import java.io.IOException
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
 import java.io.Serializable
 
+/**
+ * A sub/dub track.
+ */
 data class Track(val url: String, val lang: String) : Serializable
 
-open class Video(
-    val url: String = "",
-    val quality: String = "",
-    var videoUrl: String? = null,
-    headers: Headers? = null,
-    // "url", "language-label-2", "url2", "language-label-2"
+enum class ChapterType {
+    Opening,
+    Ending,
+    Recap,
+    MixedOp,
+    Other,
+}
+
+/**
+ * A class defining a timestamp. Displayed as video chapters in the app.
+ */
+data class TimeStamp(
+    val start: Double,
+    val end: Double,
+    val name: String,
+    val type: ChapterType = ChapterType.Other,
+) : Serializable
+
+/**
+ * The instance that contains the data needed to watch a video.
+ *
+ * This mirrors the extensions-lib 16 `Video` data class exactly, because extensions built
+ * against that library construct it by constructor/`$default` JVM signature.
+ */
+@Suppress("unused_parameter", "MemberVisibilityCanBePrivate")
+data class Video(
+    val videoUrl: String = "",
+    val videoTitle: String = "",
+    val resolution: Int? = null,
+    val bitrate: Int? = null,
+    @Transient var headers: Headers? = null,
+    val preferred: Boolean = false,
     val subtitleTracks: List<Track> = emptyList(),
     val audioTracks: List<Track> = emptyList(),
+    val timestamps: List<TimeStamp> = emptyList(),
+    val mpvArgs: List<Pair<String, String>> = emptyList(),
+    val ffmpegStreamArgs: List<Pair<String, String>> = emptyList(),
+    val ffmpegVideoArgs: List<Pair<String, String>> = emptyList(),
+    val internalData: String = "",
+    val initialized: Boolean = false,
 ) : Serializable, ProgressListener {
 
-    @Transient
-    var headers: Headers? = headers
+    /** Compatibility accessors for the app's existing Dantotsu-era code. */
+    val url: String
+        get() = videoUrl
 
-    @Suppress("UNUSED_PARAMETER")
-    constructor(
-        url: String,
-        quality: String,
-        videoUrl: String?,
-        uri: Uri? = null,
-        headers: Headers? = null,
-    ) : this(url, quality, videoUrl, headers)
-
-    @Transient
-    @Volatile
-    var status: State = State.QUEUE
-
-    @Transient
-    private val _progressFlow = MutableStateFlow(0)
-
-    @Transient
-    val progressFlow = _progressFlow.asStateFlow()
-    var progress: Int
-        get() = _progressFlow.value
-        set(value) {
-            _progressFlow.value = value
-        }
-
-    @Transient
-    @Volatile
-    var totalBytesDownloaded: Long = 0L
+    val quality: String
+        get() = videoTitle
 
     @Transient
     @Volatile
@@ -61,37 +68,10 @@ open class Video(
     @Transient
     @Volatile
     var bytesDownloaded: Long = 0L
-        set(value) {
-            totalBytesDownloaded += if (value < field) {
-                value
-            } else {
-                value - field
-            }
-            field = value
-        }
-
-    @Transient
-    var progressSubject: Subject<State, State>? = null
 
     override fun update(bytesRead: Long, contentLength: Long, done: Boolean) {
         bytesDownloaded = bytesRead
-        if (contentLength > totalContentLength) {
-            totalContentLength = contentLength
-        }
-        val newProgress = if (totalContentLength > 0) {
-            (100 * totalBytesDownloaded / totalContentLength).toInt()
-        } else {
-            -1
-        }
-        if (progress != newProgress) progress = newProgress
-    }
-
-    enum class State {
-        QUEUE,
-        LOAD_VIDEO,
-        DOWNLOAD_IMAGE,
-        READY,
-        ERROR,
+        if (contentLength > totalContentLength) totalContentLength = contentLength
     }
 
     @Throws(IOException::class)
@@ -115,6 +95,5 @@ open class Video(
             }
             builder.build()
         }
-
     }
 }

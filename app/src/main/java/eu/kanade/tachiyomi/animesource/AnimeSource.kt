@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.animesource
 
+import eu.kanade.tachiyomi.animesource.model.Hoster
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Video
@@ -60,6 +61,31 @@ interface AnimeSource {
     suspend fun getVideoList(episode: SEpisode): List<Video> {
         return fetchVideoList(episode).awaitSingle()
     }
+
+    /**
+     * Get the list of hosters an episode has.
+     *
+     * @since extensions-lib 16
+     * @param episode the episode.
+     * @return the hosters for the episode.
+     */
+    suspend fun getHosterList(episode: SEpisode): List<Hoster> = emptyList()
+
+    /**
+     * Get the list of videos a hoster has.
+     *
+     * @since extensions-lib 16
+     * @param hoster the hoster.
+     * @return the videos for the hoster.
+     */
+    suspend fun getVideoList(hoster: Hoster): List<Video> = emptyList()
+
+    /**
+     * Get all the available seasons for an anime.
+     *
+     * @since extensions-lib 16
+     */
+    suspend fun getSeasonList(anime: SAnime): List<SAnime> = emptyList()
 
     @Deprecated(
         "Use the non-RxJava API instead",

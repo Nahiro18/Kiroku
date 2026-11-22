@@ -227,7 +227,27 @@ class DynamicAnimeParser(extension: AnimeExtension.Installed) : AnimeParser() {
             ?: return emptyList())
 
         return try {
-            val videos = source.getVideoList(sEpisode)
+            // extensions-lib 16 sources expose hosters, each with its own video list.
+            val hosters = try {
+                source.getHosterList(sEpisode)
+            } catch (e: Exception) {
+                Logger.log("Hoster list failed: ${e.message}")
+                emptyList()
+            }
+
+            val videos = if (hosters.isNotEmpty()) {
+                hosters.flatMap { hoster ->
+                    try {
+                        hoster.videoList ?: source.getVideoList(hoster)
+                    } catch (e: Exception) {
+                        Logger.log("Videos for hoster ${hoster.hosterName} failed: ${e.message}")
+                        emptyList()
+                    }
+                }
+            } else {
+                // legacy extensions return the video list straight from the episode
+                source.getVideoList(sEpisode)
+            }
             videos.map { videoToVideoServer(it) }
         } catch (e: Exception) {
             Logger.log("Exception occurred: ${e.message}")
@@ -301,16 +321,19 @@ class DynamicAnimeParser(extension: AnimeExtension.Installed) : AnimeParser() {
             sEpisode.url,
             sEpisode.name,
             null,
-            null,
-            false,
+            sEpisode.summary,
+            sEpisode.fillermark,
             null,
             sEpisode
         )
     }
 
     private fun videoToVideoServer(video: Video): VideoServer {
+        val name = video.quality.ifBlank {
+            video.resolution?.let { "${it}p" } ?: ""
+        }
         return VideoServer(
-            video.quality,
+            name,
             video.url,
             null,
             video
@@ -532,11 +555,12 @@ class VideoServerPassthrough(private val videoServer: VideoServer) : VideoExtrac
     }
 
     private fun aniVideoToSaiVideo(aniVideo: Video): ani.dantotsu.parsers.Video {
-        // Find the number value from the .quality string
-        val number = Regex("""\d+""").find(aniVideo.quality)?.value?.toInt() ?: 0
+        // Prefer the explicit resolution, fall back to the number in the title
+        val number = aniVideo.resolution
+            ?: Regex("""\d+""").find(aniVideo.videoTitle)?.value?.toInt()
+            ?: 0
 
-        // Check for null video URL
-        val videoUrl = aniVideo.videoUrl ?: throw Exception("Video URL is null")
+        val videoUrl = aniVideo.videoUrl
 
         var format: VideoType?
 
