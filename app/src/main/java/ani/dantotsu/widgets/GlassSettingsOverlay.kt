@@ -44,6 +44,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import ani.dantotsu.R
 import ani.dantotsu.connections.anilist.Anilist
+import ani.dantotsu.download.DownloadsActivity
 import ani.dantotsu.incognitoNotification
 import ani.dantotsu.profile.ProfileActivity
 import ani.dantotsu.profile.activity.FeedActivity
@@ -260,6 +261,16 @@ fun GlassSettingsOverlay(
                 HorizontalDivider(color = contentColor.copy(0.1f), thickness = 1.dp)
                 
                 // Navigation Items
+                GlassNavItem(
+                    icon = R.drawable.ic_download_24,
+                    title = "Downloads",
+                    onClick = {
+                        context.startActivity(Intent(context, DownloadsActivity::class.java))
+                        onDismiss()
+                    },
+                    contentColor = contentColor
+                )
+
                 GlassNavItem(
                     icon = R.drawable.ic_round_notifications_none_24,
                     title = "Activities",

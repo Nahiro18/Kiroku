@@ -22,6 +22,7 @@ import androidx.media3.exoplayer.offline.DownloadManager
 import androidx.media3.exoplayer.scheduler.Requirements
 import ani.dantotsu.R
 import ani.dantotsu.defaultHeaders
+import ani.dantotsu.download.DownloadQueueTracker
 import ani.dantotsu.download.DownloadedType
 import ani.dantotsu.download.DownloadsManager
 import ani.dantotsu.download.anime.AnimeDownloaderService
@@ -49,7 +50,8 @@ object Helper {
         subtitle: List<Pair<String, String>> = emptyList(),
         audio: List<Pair<String, String>> = emptyList(),
         sourceMedia: Media? = null,
-        episodeImage: String? = null
+        episodeImage: String? = null,
+        silent: Boolean = false
     ) {
         if (!isNotificationPermissionGranted(context)) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -75,7 +77,21 @@ object Helper {
         val downloadCheck = downloadsManager
             .queryDownload(title, episode, MediaType.ANIME)
 
+        fun enqueue(task: AnimeDownloaderService.AnimeDownloadTask) {
+            AnimeServiceDataSingleton.downloadQueue.offer(task)
+            DownloadQueueTracker.upsert(title, episode, "Queued")
+            // Always wake the service: if its worker loop is already running this is a no-op, and
+            // it is what picks up tasks queued while an earlier batch is still downloading.
+            ContextCompat.startForegroundService(
+                context,
+                Intent(context, AnimeDownloaderService::class.java)
+            )
+            AnimeServiceDataSingleton.isServiceRunning = true
+        }
+
         if (downloadCheck) {
+            // Batch downloads must never stop for a dialog: an existing file is simply skipped.
+            if (silent) return
             context.customAlertDialog().apply {
                 setTitle("Download Exists")
                 setMessage("A download for this episode already exists. Do you want to overwrite it?")
@@ -90,24 +106,14 @@ object Helper {
                             MediaType.ANIME
                         )
                     ) {
-                        AnimeServiceDataSingleton.downloadQueue.offer(animeDownloadTask)
-                        if (!AnimeServiceDataSingleton.isServiceRunning) {
-                            val intent = Intent(context, AnimeDownloaderService::class.java)
-                            ContextCompat.startForegroundService(context, intent)
-                            AnimeServiceDataSingleton.isServiceRunning = true
-                        }
+                        enqueue(animeDownloadTask)
                     }
                 }
                 setNegButton(R.string.no)
                 show()
             }
         } else {
-            AnimeServiceDataSingleton.downloadQueue.offer(animeDownloadTask)
-            if (!AnimeServiceDataSingleton.isServiceRunning) {
-                val intent = Intent(context, AnimeDownloaderService::class.java)
-                ContextCompat.startForegroundService(context, intent)
-                AnimeServiceDataSingleton.isServiceRunning = true
-            }
+            enqueue(animeDownloadTask)
         }
     }
 

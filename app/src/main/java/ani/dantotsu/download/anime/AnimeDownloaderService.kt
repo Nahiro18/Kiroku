@@ -22,6 +22,7 @@ import ani.dantotsu.R
 import ani.dantotsu.addons.download.DownloadAddonManager
 import ani.dantotsu.connections.crashlytics.CrashlyticsInterface
 import ani.dantotsu.defaultHeaders
+import ani.dantotsu.download.DownloadQueueTracker
 import ani.dantotsu.download.DownloadedType
 import ani.dantotsu.download.DownloadsManager
 import ani.dantotsu.download.DownloadsManager.Companion.getSubDirectory
@@ -32,6 +33,7 @@ import ani.dantotsu.media.MediaType
 import ani.dantotsu.media.anime.AnimeWatchFragment
 import ani.dantotsu.parsers.Video
 import ani.dantotsu.settings.saving.PrefManager
+import ani.dantotsu.settings.saving.PrefName
 import ani.dantotsu.snackString
 import ani.dantotsu.toast
 import ani.dantotsu.util.Logger
@@ -50,6 +52,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -68,10 +71,13 @@ class AnimeDownloaderService : Service() {
     private lateinit var builder: NotificationCompat.Builder
     private val downloadsManager: DownloadsManager = Injekt.get<DownloadsManager>()
 
-    private val downloadJobs = mutableMapOf<String, Job>()
-    private val mutex = Mutex()
-    private var isCurrentlyProcessing = false
-    private var currentTasks: MutableList<AnimeDownloadTask> = mutableListOf()
+    private val downloadJobs = java.util.concurrent.ConcurrentHashMap<String, Job>()
+    private val mediaInfoMutex = Mutex()
+    private var currentTasks: MutableList<AnimeDownloadTask> =
+        java.util.concurrent.CopyOnWriteArrayList()
+
+    @Volatile
+    private var workerJob: Job? = null
     private val ffExtension = Injekt.get<DownloadAddonManager>().extension?.extension
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -114,49 +120,74 @@ class AnimeDownloaderService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        AnimeServiceDataSingleton.downloadQueue.clear()
+        // Pending tasks stay in the queue: the service is restarted when it is next needed.
         downloadJobs.clear()
+        workerJob = null
         AnimeServiceDataSingleton.isServiceRunning = false
-        unregisterReceiver(cancelReceiver)
+        try {
+            unregisterReceiver(cancelReceiver)
+        } catch (_: Exception) {
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        snackString("Download started")
-        val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-        serviceScope.launch {
-            mutex.withLock {
-                if (!isCurrentlyProcessing) {
-                    isCurrentlyProcessing = true
-                    processQueue()
-                    isCurrentlyProcessing = false
-                }
-            }
-        }
+        startWorker()
         return START_NOT_STICKY
     }
 
-    private fun processQueue() {
-        CoroutineScope(Dispatchers.Default).launch {
-            while (AnimeServiceDataSingleton.downloadQueue.isNotEmpty()) {
-                val task = AnimeServiceDataSingleton.downloadQueue.poll()
-                if (task != null) {
-                    val job = launch { download(task) }
-                    currentTasks.add(task)
-                    mutex.withLock {
-                        downloadJobs[task.getTaskName()] = job
-                    }
-                    job.join() // Wait for the job to complete before continuing to the next task
-                    mutex.withLock {
-                        downloadJobs.remove(task.getTaskName())
-                    }
-                    updateNotification() // Update the notification after each task is completed
-                }
-                if (AnimeServiceDataSingleton.downloadQueue.isEmpty()) {
-                    withContext(Dispatchers.Main) {
-                        stopSelf() // Stop the service when the queue is empty
-                    }
+    private fun startWorker() {
+        if (workerJob?.isActive == true) return
+        workerJob = CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
+            try {
+                processQueue()
+            } finally {
+                workerJob = null
+                // A task can be queued in the moment between the loop ending and this finally;
+                // pick it up instead of shutting the service down on it.
+                if (AnimeServiceDataSingleton.downloadQueue.isNotEmpty()) {
+                    startWorker()
+                } else {
+                    withContext(Dispatchers.Main) { stopSelf() }
                 }
             }
+        }
+    }
+
+    private fun parallelDownloads(): Int {
+        return (PrefManager.getVal(PrefName.ParallelDownloads) as? Int ?: 3).coerceIn(1, 6)
+    }
+
+    /**
+     * Runs up to [parallelDownloads] downloads at once; a new episode starts as soon as one slot
+     * frees up instead of after the whole queue is drained one by one.
+     */
+    private suspend fun CoroutineScope.processQueue() {
+        val running = mutableMapOf<String, Job>()
+        while (true) {
+            val maxParallel = parallelDownloads()
+            while (running.size < maxParallel) {
+                val task = AnimeServiceDataSingleton.downloadQueue.poll() ?: break
+                val name = task.getTaskName()
+                currentTasks.add(task)
+                val job = launch {
+                    try {
+                        download(task)
+                    } finally {
+                        currentTasks.removeAll { it.getTaskName() == name }
+                        downloadJobs.remove(name)
+                    }
+                }
+                running[name] = job
+                downloadJobs[name] = job
+            }
+            val finished = running.entries.firstOrNull { it.value.isCompleted }
+            if (finished != null) {
+                running.remove(finished.key)
+                updateNotification()
+                continue
+            }
+            if (running.isEmpty() && AnimeServiceDataSingleton.downloadQueue.isEmpty()) break
+            delay(300)
         }
     }
 
@@ -166,18 +197,17 @@ class AnimeDownloaderService : Service() {
             AnimeServiceDataSingleton.downloadQueue.filter { it.getTaskName() == taskName }
                 .map { it.sessionId }.toMutableList()
         sessionIds.addAll(currentTasks.filter { it.getTaskName() == taskName }.map { it.sessionId })
-        sessionIds.forEach {
-            ffExtension!!.cancelDownload(it)
-        }
-        currentTasks.removeAll { it.getTaskName() == taskName }
-        CoroutineScope(Dispatchers.Default).launch {
-            mutex.withLock {
-                downloadJobs[taskName]?.cancel()
-                downloadJobs.remove(taskName)
-                AnimeServiceDataSingleton.downloadQueue.removeAll { it.getTaskName() == taskName }
-                updateNotification() // Update the notification after cancellation
+        sessionIds.filter { it > 0 }.forEach {
+            try {
+                ffExtension?.cancelDownload(it)
+            } catch (_: Exception) {
             }
         }
+        currentTasks.removeAll { it.getTaskName() == taskName }
+        AnimeServiceDataSingleton.downloadQueue.removeAll { it.getTaskName() == taskName }
+        downloadJobs.remove(taskName)?.cancel()
+        DownloadQueueTracker.removeByTaskName(taskName)
+        updateNotification()
     }
 
     private fun updateNotification() {
@@ -212,6 +242,7 @@ class AnimeDownloaderService : Service() {
                 }
 
                 builder.setContentText("Downloading ${getTaskName(task.title, task.episode)}")
+                DownloadQueueTracker.upsert(task.title, task.episode, "Downloading", 0)
                 if (notifi) {
                     withContext(Dispatchers.Main) {
                         notificationManager.notify(NOTIFICATION_ID, builder.build())
@@ -323,12 +354,19 @@ class AnimeDownloaderService : Service() {
                             )
                         )
                         currentTasks.removeAll { it.getTaskName() == task.getTaskName() }
+                        DownloadQueueTracker.upsert(task.title, task.episode, "Failed", percent)
                         broadcastDownloadFailed(task.episode)
                         break
                     }
                     builder.setProgress(
                         100, percent.coerceAtMost(99),
                         false
+                    )
+                    DownloadQueueTracker.upsert(
+                        task.title,
+                        task.episode,
+                        "Downloading",
+                        percent.coerceAtMost(99)
                     )
                     broadcastDownloadProgress(
                         task.episode,
@@ -376,6 +414,7 @@ class AnimeDownloaderService : Service() {
                             )
                         )
                         currentTasks.removeAll { it.getTaskName() == task.getTaskName() }
+                        DownloadQueueTracker.upsert(task.title, task.episode, "Failed", percent)
                         broadcastDownloadFailed(task.episode)
                         return@withContext
                     }
@@ -407,6 +446,7 @@ class AnimeDownloaderService : Service() {
                     )
 
                     currentTasks.removeAll { it.getTaskName() == task.getTaskName() }
+                    DownloadQueueTracker.upsert(task.title, task.episode, "Completed", 100)
                     broadcastDownloadFinished(task.episode)
                 } else throw Exception("Download failed")
 
@@ -417,6 +457,7 @@ class AnimeDownloaderService : Service() {
                     e.printStackTrace()
                     Injekt.get<CrashlyticsInterface>().logException(e)
                 }
+                DownloadQueueTracker.upsert(task.title, task.episode, "Failed", 0)
                 broadcastDownloadFailed(task.episode)
             }
         }
@@ -424,6 +465,16 @@ class AnimeDownloaderService : Service() {
 
     private fun saveMediaInfo(task: AnimeDownloadTask, directory: DocumentFile) {
         CoroutineScope(Dispatchers.IO).launch {
+            // Several episodes of the same anime can finish at once; they all rewrite the same
+            // media.json, so serialise it or they delete each other's file mid-write.
+            mediaInfoMutex.withLock {
+                writeMediaInfo(task, directory)
+            }
+        }
+    }
+
+    private suspend fun writeMediaInfo(task: AnimeDownloadTask, directory: DocumentFile) {
+        withContext(Dispatchers.IO) {
             directory.findFile("media.json")?.forceDelete(this@AnimeDownloaderService)
             val file = directory.createFile("application/json", "media.json")
                 ?: throw Exception("File not created")

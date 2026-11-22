@@ -99,10 +99,6 @@ class AnimeWatchFragment : Fragment() {
 
     var screenWidth = 0f
     private var progress = View.VISIBLE
-    // Batch download queue: remaining episodes to show their download selector one by one.
-    // Opened on onResume (after returning from 1DM) because showing a fragment while the app
-    // is in the background silently fails.
-    private var batchQueue: MutableList<String>? = null
 
     var continueEp: Boolean = false
     var loaded = false
@@ -414,7 +410,6 @@ class AnimeWatchFragment : Fragment() {
         binding.batchCount.text = "${episodeAdapter.selectedForBatch.size} selected"
         binding.batchSelectAll.setOnClickListener { episodeAdapter.selectAllBatch() }
         binding.batchCancel.setOnClickListener {
-            batchQueue = null
             episodeAdapter.exitBatchMode()
             binding.batchBar.isVisible = false
         }
@@ -424,8 +419,8 @@ class AnimeWatchFragment : Fragment() {
     }
 
     /**
-     * Queues the given episodes for download one after another, asking for storage access first
-     * if needed.
+     * Downloads the given episodes with a single server choice: the selector opens once, and the
+     * server/quality picked there is applied to every episode and queued in parallel.
      */
     private fun startBatchDownload(episodes: List<String>) {
         if (episodes.isEmpty()) {
@@ -436,8 +431,17 @@ class AnimeWatchFragment : Fragment() {
             compareBy { MediaNameAdapter.findEpisodeNumber(it) ?: Float.MAX_VALUE }
         )
         fun startBatch() {
-            batchQueue = ordered.toMutableList()
-            openNextBatchDownloader()
+            media.anime?.selectedEpisode = ordered.first()
+            val selector = SelectorDialogFragment.newInstance(
+                media.selected?.server,
+                false,
+                null,
+                isDownload = true,
+                batchEpisodes = ordered.toTypedArray()
+            )
+            selector.show(requireActivity().supportFragmentManager, "dialog")
+            if (::episodeAdapter.isInitialized) episodeAdapter.exitBatchMode()
+            _binding?.batchBar?.isVisible = false
         }
         val activity = activity ?: return
         if (!hasDirAccess(activity)) {
@@ -483,64 +487,6 @@ class AnimeWatchFragment : Fragment() {
         dialog.show()
     }
 
-    private fun finishBatchDownload() {
-        batchQueue = null
-        if (::episodeAdapter.isInitialized) episodeAdapter.exitBatchMode()
-        _binding?.batchBar?.isVisible = false
-    }
-
-    /**
-     * Opens the download selector (server picker) for the next episode in the batch queue.
-     * Called from onResume after returning from 1DM so the fragment is in the foreground;
-     * showing a BottomSheetDialogFragment while the app is backgrounded is silently dropped.
-     */
-    private fun openNextBatchDownloader() {
-        val queue = batchQueue ?: return
-        Logger.log("BATCH: openNextBatchDownloader queue=$queue")
-
-        // Skip missing episodes without recursing, so very large selections can't overflow the stack.
-        while (queue.isNotEmpty()) {
-            val epNum = queue.removeAt(0)
-            val ep = media.anime?.episodes?.get(epNum)
-            if (ep == null) {
-                Logger.log("BATCH: episode $epNum not found, skipping")
-                continue
-            }
-            media.anime?.selectedEpisode = epNum
-            val selector = SelectorDialogFragment.newInstance(
-                media.selected?.server,
-                false,
-                null,
-                isDownload = true
-            )
-            // Both callbacks can fire for one sheet (confirm then dismiss); only advance once.
-            var advanced = false
-            val advance = {
-                if (!advanced) {
-                    advanced = true
-                    if (isAdded) openNextBatchDownloader()
-                }
-            }
-            selector.onBatchEpisodeDownloaded = {
-                Logger.log("BATCH: episode $epNum download confirmed, advancing")
-                advance()
-            }
-            selector.onBatchEpisodeSkipped = {
-                Logger.log("BATCH: episode $epNum skipped, advancing")
-                advance()
-            }
-            try {
-                selector.show(requireActivity().supportFragmentManager, "dialog")
-                Logger.log("BATCH: showed selector for episode $epNum")
-                return
-            } catch (e: Exception) {
-                Logger.log("BATCH: failed to show selector for $epNum: ${e.message}")
-            }
-        }
-
-        Logger.log("BATCH: queue empty, exiting batch mode")
-        finishBatchDownload()
-    }
 
     fun openSettings(pkg: AnimeExtension.Installed) {
         val changeUIVisibility: (Boolean) -> Unit = { show ->

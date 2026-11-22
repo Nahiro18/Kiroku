@@ -43,8 +43,8 @@ import ani.dantotsu.media.Media
 import ani.dantotsu.media.MediaDetailsViewModel
 import ani.dantotsu.media.MediaType
 import ani.dantotsu.media.SubtitleDownloader
+import ani.dantotsu.download.anime.BatchDownloader
 import ani.dantotsu.navBarHeight
-import ani.dantotsu.others.Download.download
 import ani.dantotsu.parsers.Subtitle
 import ani.dantotsu.parsers.Video
 import ani.dantotsu.parsers.VideoExtractor
@@ -83,29 +83,10 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
     private var selected: String? = null
     private var launch: Boolean? = null
     private var isDownloadMenu: Boolean? = null
-    // Called once a download is confirmed so a caller can advance to the next episode in a batch.
-    var onBatchEpisodeDownloaded: ((String) -> Unit)? = null
 
-    // Called when the sheet is dismissed without a download being confirmed, so a batch
-    // download doesn't stall on an episode the user backed out of.
-    var onBatchEpisodeSkipped: (() -> Unit)? = null
-
-    private var batchAdvanceScheduled = false
-
-    /**
-     * If this sheet is part of a batch download and closes without a confirmed download,
-     * tell the caller to move on to the next episode instead of stalling the batch.
-     */
-    private fun scheduleBatchSkipIfNeeded() {
-        val onSkipped = onBatchEpisodeSkipped ?: return
-        if (batchAdvanceScheduled) return
-        // Give the confirm path a moment to mark the advance as scheduled.
-        Handler(Looper.getMainLooper()).postDelayed({
-            if (batchAdvanceScheduled) return@postDelayed
-            Logger.log("BATCH: selector dismissed without download, advancing")
-            onSkipped()
-        }, 300)
-    }
+    // When set, picking a server/quality downloads every one of these episodes with it instead
+    // of only the episode currently open.
+    private var batchEpisodes: Array<String>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -114,6 +95,7 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
             launch = it.getBoolean("launch", true)
             prevEpisode = it.getString("prev")
             isDownloadMenu = it.getBoolean("isDownload")
+            batchEpisodes = it.getStringArray("batchEpisodes")
         }
     }
 
@@ -539,27 +521,30 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
                     extractor.server.name
                 media!!.anime!!.episodes!![media!!.anime!!.selectedEpisode!!]!!.selectedVideo =
                     position
-                if ((PrefManager.getVal(PrefName.DownloadManager) as Int) != 0) {
-                    download(
-                        requireActivity(),
-                        media!!.anime!!.episodes!![media!!.anime!!.selectedEpisode!!]!!,
-                        media!!.userPreferredName
-                    )
-                    batchAdvanceScheduled = true
-                    val onConfirmed = onBatchEpisodeDownloaded
-                    if (onConfirmed != null) {
-                        val epNum =
-                            media!!.anime!!.episodes!![media!!.anime!!.selectedEpisode!!]!!.number
-                        // Advance to the next episode's selector after this sheet has closed.
-                        // Use the Activity's looper (survives the view being destroyed by dismiss)
-                        // rather than the sheet's view.
-                        Handler(Looper.getMainLooper()).postDelayed({
-                            Logger.log("BATCH: advancing to next after episode $epNum")
-                            onConfirmed(epNum)
-                        }, 400)
+                val batch = batchEpisodes
+                if (!batch.isNullOrEmpty()) {
+                    // Batch: one server choice for the whole selection, resolved in the background.
+                    if (!Injekt.get<DownloadAddonManager>().isAvailable()) {
+                        toast(R.string.download_addon_not_installed)
+                        dismiss()
+                        return@setSafeOnClickListener
                     }
+                    val currentMedia = media!!
+                    val activity = currActivity() ?: requireActivity()
+                    val episodes = batch.toList()
                     dismiss()
-                } else {
+                    BatchDownloader.start(
+                        activity, model, currentMedia, episodes, extractor.server.name, position,
+                        onFinished = { started, skipped ->
+                            snackString(
+                                if (skipped > 0) "Queued $started episodes ($skipped skipped)"
+                                else "Queued $started episodes"
+                            )
+                        }
+                    )
+                    return@setSafeOnClickListener
+                }
+                run {
                     val downloadAddonManager: DownloadAddonManager = Injekt.get()
                     if (!downloadAddonManager.isAvailable()) {
                         val context = currContext() ?: requireContext()
@@ -790,7 +775,8 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
             server: String? = null,
             la: Boolean = true,
             prev: String? = null,
-            isDownload: Boolean
+            isDownload: Boolean,
+            batchEpisodes: Array<String>? = null
         ): SelectorDialogFragment =
             SelectorDialogFragment().apply {
                 arguments = Bundle().apply {
@@ -798,6 +784,7 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
                     putBoolean("launch", la)
                     putString("prev", prev)
                     putBoolean("isDownload", isDownload)
+                    putStringArray("batchEpisodes", batchEpisodes)
                 }
             }
     }
@@ -805,7 +792,6 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
     override fun onSaveInstanceState(outState: Bundle) {}
 
     override fun onDismiss(dialog: DialogInterface) {
-        scheduleBatchSkipIfNeeded()
         if (launch == false) {
             activity?.hideSystemBars()
             model.epChanged.postValue(true)
