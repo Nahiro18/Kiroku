@@ -1159,4 +1159,9 @@ Non quae tempore quo provident laudantium qui illo dolor vel quia dolor et exerc
     <string name="ai_person_model_missing">Model not downloaded. Go to Add-ons to download it.</string>
     <string name="restart_app">Restart App</string>
     <string name="changes_require_restart">Changes require app restart to take effect</string>
+    <string name="batch_download">Batch Download</string>
+    <string name="download_unwatched_episodes">Download Unwatched Episodes</string>
+    <string name="download_current_section">Download Current Section</string>
+    <string name="download_all_episodes">Download All Episodes</string>
+    <string name="n_episodes">%1$d episodes</string>
 </resources>

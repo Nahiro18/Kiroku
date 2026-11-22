@@ -31,7 +31,13 @@ enum class PrefName(val data: Pref) {
             "Mozilla/5.0 (Linux; Android 13; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36"
         )
     ),
-    AnimeExtensionRepos(Pref(Location.General, Set::class, setOf<String>())),
+    AnimeExtensionRepos(
+        Pref(
+            Location.General,
+            Set::class,
+            setOf("https://raw.githubusercontent.com/salmanbappi/extensions-repo/main/index.min.json")
+        )
+    ),
     MangaExtensionRepos(Pref(Location.General, Set::class, setOf<String>())),
     NovelExtensionRepos(Pref(Location.General, Set::class, setOf<String>())),
     AnimeSourcesOrder(Pref(Location.General, List::class, listOf<String>())),

@@ -29,6 +29,7 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import ani.dantotsu.R
 import ani.dantotsu.addons.download.DownloadAddonManager
+import ani.dantotsu.databinding.BottomSheetBatchDownloadBinding
 import ani.dantotsu.databinding.FragmentMediaSourceBinding
 import ani.dantotsu.download.DownloadedType
 import ani.dantotsu.download.DownloadsManager
@@ -62,6 +63,7 @@ import ani.dantotsu.util.StoragePermissions.Companion.hasDirAccess
 import ani.dantotsu.util.customAlertDialog
 import com.anggrayudi.storage.file.extension
 import com.google.android.material.appbar.AppBarLayout
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.extension.anime.model.AnimeExtension
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -417,27 +419,68 @@ class AnimeWatchFragment : Fragment() {
             binding.batchBar.isVisible = false
         }
         binding.batchDownload.setOnClickListener {
-            val selected = episodeAdapter.selectedForBatch.sortedWith(
-                compareBy { MediaNameAdapter.findEpisodeNumber(it) ?: Float.MAX_VALUE }
-            )
-            if (selected.isEmpty()) {
-                snackString("No episodes selected")
-                return@setOnClickListener
-            }
-            fun startBatch() {
-                batchQueue = selected.toMutableList()
-                openNextBatchDownloader()
-            }
-            val activity = activity ?: return@setOnClickListener
-            if (!hasDirAccess(activity)) {
-                (activity as? MediaDetailsActivity)?.accessAlertDialog(activity.launcher) { success ->
-                    if (success) startBatch()
-                    else snackString(getString(R.string.download_permission_required))
-                } ?: snackString(getString(R.string.download_permission_required))
-            } else {
-                startBatch()
+            startBatchDownload(episodeAdapter.selectedForBatch.toList())
+        }
+    }
+
+    /**
+     * Queues the given episodes for download one after another, asking for storage access first
+     * if needed.
+     */
+    private fun startBatchDownload(episodes: List<String>) {
+        if (episodes.isEmpty()) {
+            snackString("No episodes selected")
+            return
+        }
+        val ordered = episodes.sortedWith(
+            compareBy { MediaNameAdapter.findEpisodeNumber(it) ?: Float.MAX_VALUE }
+        )
+        fun startBatch() {
+            batchQueue = ordered.toMutableList()
+            openNextBatchDownloader()
+        }
+        val activity = activity ?: return
+        if (!hasDirAccess(activity)) {
+            (activity as? MediaDetailsActivity)?.accessAlertDialog(activity.launcher) { success ->
+                if (success) startBatch()
+                else snackString(getString(R.string.download_permission_required))
+            } ?: snackString(getString(R.string.download_permission_required))
+        } else {
+            startBatch()
+        }
+    }
+
+    /**
+     * Opens the batch download sheet from the download icon in the episodes header.
+     */
+    fun showBatchDownloadSheet() {
+        val allEpisodes = media.anime?.episodes?.values?.toList().orEmpty()
+        val sectionEpisodes = if (::episodeAdapter.isInitialized) episodeAdapter.arr else emptyList()
+        val watchedUpTo = media.userProgress?.toFloat() ?: 0f
+        val unwatched = allEpisodes.filter { (it.number.toFloatOrNull() ?: 0f) > watchedUpTo }
+
+        val sheet = BottomSheetBatchDownloadBinding.inflate(layoutInflater)
+        val dialog = BottomSheetDialog(requireContext())
+        dialog.setContentView(sheet.root)
+
+        sheet.batchUnwatchedCount.text = getString(R.string.n_episodes, unwatched.size)
+        sheet.batchSectionCount.text = getString(R.string.n_episodes, sectionEpisodes.size)
+        sheet.batchAllCount.text = getString(R.string.n_episodes, allEpisodes.size)
+
+        fun bind(row: View, episodes: List<Episode>) {
+            val available = episodes.isNotEmpty()
+            row.alpha = if (available) 1f else 0.4f
+            row.setOnClickListener {
+                if (!available) return@setOnClickListener
+                dialog.dismiss()
+                startBatchDownload(episodes.map { it.number })
             }
         }
+        bind(sheet.batchUnwatchedRow, unwatched)
+        bind(sheet.batchSectionRow, sectionEpisodes)
+        bind(sheet.batchAllRow, allEpisodes)
+
+        dialog.show()
     }
 
     private fun finishBatchDownload() {
