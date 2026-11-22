@@ -26,7 +26,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import ani.dantotsu.BottomSheetDialogFragment
 import ani.dantotsu.R
-import ani.dantotsu.addons.download.DownloadAddonManager
 import ani.dantotsu.addons.torrent.TorrentAddonManager
 import ani.dantotsu.connections.crashlytics.CrashlyticsInterface
 import ani.dantotsu.copyToClipboard
@@ -524,11 +523,6 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
                 val batch = batchEpisodes
                 if (!batch.isNullOrEmpty()) {
                     // Batch: one server choice for the whole selection, resolved in the background.
-                    if (!Injekt.get<DownloadAddonManager>().isAvailable()) {
-                        toast(R.string.download_addon_not_installed)
-                        dismiss()
-                        return@setSafeOnClickListener
-                    }
                     val currentMedia = media!!
                     val activity = currActivity() ?: requireActivity()
                     val episodes = batch.toList()
@@ -545,27 +539,6 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
                     return@setSafeOnClickListener
                 }
                 run {
-                    val downloadAddonManager: DownloadAddonManager = Injekt.get()
-                    if (!downloadAddonManager.isAvailable()) {
-                        val context = currContext() ?: requireContext()
-                        context.customAlertDialog().apply {
-                            setTitle(R.string.download_addon_not_installed)
-                            setMessage(R.string.would_you_like_to_install)
-                            setPosButton(R.string.yes) {
-                                ContextCompat.startActivity(
-                                    context,
-                                    Intent(context, SettingsAddonActivity::class.java),
-                                    null
-                                )
-                            }
-                            setNegButton(R.string.no) {
-                                return@setNegButton
-                            }
-                            show()
-                        }
-                        dismiss()
-                        return@setSafeOnClickListener
-                    }
                     val episode =
                         media!!.anime!!.episodes!![media!!.anime!!.selectedEpisode!!]!!
                     val selectedVideo =

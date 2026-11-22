@@ -17,7 +17,6 @@ import androidx.recyclerview.widget.RecyclerView
 import ani.dantotsu.R
 import ani.dantotsu.ai.PersonModelManager
 import ani.dantotsu.addons.AddonDownloader
-import ani.dantotsu.addons.download.DownloadAddonManager
 import ani.dantotsu.addons.torrent.TorrentAddonManager
 import ani.dantotsu.addons.torrent.TorrentServerService
 import ani.dantotsu.databinding.ActivitySettingsAddonsBinding
@@ -43,7 +42,6 @@ import uy.kohesive.injekt.api.get
 
 class SettingsAddonActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySettingsAddonsBinding
-    private val downloadAddonManager: DownloadAddonManager = Injekt.get()
     private val torrentAddonManager: TorrentAddonManager = Injekt.get()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,63 +63,6 @@ class SettingsAddonActivity : AppCompatActivity() {
             settingsRecyclerView.adapter = SettingsAdapter(
                 arrayListOf(
                     Settings(
-                        type = 1,
-                        name = getString(R.string.anime_downloader_addon),
-                        desc = getString(R.string.not_installed),
-                        icon = R.drawable.ic_download_24,
-                        isActivity = true,
-                        attach = {
-                            setStatus(
-                                view = it,
-                                context = context,
-                                status = downloadAddonManager.hadError(context),
-                                hasUpdate = downloadAddonManager.hasUpdate
-                            )
-                            var job = Job()
-                            downloadAddonManager.addListenerAction { _ ->
-                                job.cancel()
-                                it.settingsIconRight.animate().cancel()
-                                it.settingsIconRight.rotation = 0f
-                                setStatus(
-                                    view = it,
-                                    context = context,
-                                    status = downloadAddonManager.hadError(context),
-                                    hasUpdate = false
-                                )
-                            }
-                            it.settingsIconRight.setOnClickListener { _ ->
-                                if (it.settingsDesc.text == getString(R.string.installed)) {
-                                    downloadAddonManager.uninstall()
-                                    return@setOnClickListener
-                                } else {
-                                    job = Job()
-                                    val scope = CoroutineScope(Dispatchers.Main + job)
-                                    it.settingsIconRight.setImageResource(R.drawable.ic_sync)
-                                    scope.launch {
-                                        while (isActive) {
-                                            withContext(Dispatchers.Main) {
-                                                it.settingsIconRight.animate()
-                                                    .rotationBy(360f)
-                                                    .setDuration(1000)
-                                                    .setInterpolator(LinearInterpolator())
-                                                    .start()
-                                            }
-                                            delay(1000)
-                                        }
-                                    }
-                                    snackString(getString(R.string.downloading))
-                                    lifecycleScope.launchIO {
-                                        AddonDownloader.update(
-                                            activity = context,
-                                            downloadAddonManager,
-                                            repo = DownloadAddonManager.REPO,
-                                            currentVersion = downloadAddonManager.getVersion() ?: ""
-                                        )
-                                    }
-                                }
-                            }
-                        },
-                    ), Settings(
                         type = 1,
                         name = getString(R.string.torrent_addon),
                         desc = getString(R.string.not_installed),
@@ -237,7 +178,6 @@ class SettingsAddonActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         torrentAddonManager.removeListenerAction()
-        downloadAddonManager.removeListenerAction()
     }
 
     private fun setupPersonModel(itemView: ItemSettingsBinding) {

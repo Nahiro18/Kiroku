@@ -28,7 +28,6 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import ani.dantotsu.R
-import ani.dantotsu.addons.download.DownloadAddonManager
 import ani.dantotsu.databinding.BottomSheetBatchDownloadBinding
 import ani.dantotsu.databinding.FragmentMediaSourceBinding
 import ani.dantotsu.download.DownloadedType
@@ -637,7 +636,10 @@ class AnimeWatchFragment : Fragment() {
                     getSubDirectory(context, MediaType.ANIME, false, media.mainName(), i)
                         ?: throw Exception("Directory is null")
                 val files = directory.listFiles()
-                val videoFiles = files.filter { it.extension == "mp4" || it.extension == "mkv" }
+                val videoFiles = files.filter {
+                    it.extension == "mp4" || it.extension == "mkv" ||
+                            it.extension == "ts" || it.extension == "webm"
+                }
                 if (videoFiles.size != 1) {
                     val biggest =
                         videoFiles.filter { it.length() > 1000 }.maxByOrNull { it.length() }
@@ -655,52 +657,7 @@ class AnimeWatchFragment : Fragment() {
                     }
                     toast(context.getString(R.string.success) + " (1)")
                 } else {
-                    val ffExtension = Injekt.get<DownloadAddonManager>().extension?.extension!!
-                    val extension = ffExtension.getFileExtension()
-                    val tempFile =
-                        directory.createFile(extension.second, "temp.${extension.first}")
-                            ?: throw Exception("Temp file is null")
-                    val tempPath = ffExtension.setDownloadPath(
-                        context,
-                        tempFile.uri
-                    )
-                    val videoPath = ffExtension.getReadPath(
-                        context,
-                        videoFiles[0].uri
-                    )
-
-                    val id = ffExtension.customFFMpeg(
-                        "1", listOf(videoPath, tempPath)
-                    ) { log ->
-                        Logger.log(log)
-                    }
-                    val timeOut = System.currentTimeMillis() + 1000 * 60 * 10
-                    while (ffExtension.getState(id) != "COMPLETED") {
-                        if (ffExtension.getState(id) == "FAILED") {
-                            Logger.log("Failed to fix download")
-                            ffExtension.getStackTrace(id)?.let {
-                                Logger.log(it)
-                            }
-                            toast(R.string.failed_to_fix)
-                            return@launchIO
-                        }
-                        if (System.currentTimeMillis() > timeOut) {
-                            Logger.log("Failed to fix download: Timeout")
-                            toast(R.string.failed_to_fix)
-                            return@launchIO
-                        }
-                    }
-                    if (ffExtension.hadError(id)) {
-                        Logger.log("Failed to fix download: ${ffExtension.getStackTrace(id)}")
-                        toast(R.string.failed_to_fix)
-                        return@launchIO
-                    }
-                    val name = videoFiles[0].name
-                    if (videoFiles[0].delete().not()) {
-                        toast(R.string.delete_fail)
-                        return@launchIO
-                    }
-                    tempFile.renameTo(name!!)
+                    // Downloads are written ready to play, so there is nothing left to remux.
                     toast(context.getString(R.string.success) + " (2)")
                 }
             } catch (e: Exception) {

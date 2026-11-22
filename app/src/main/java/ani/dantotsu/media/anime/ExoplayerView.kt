@@ -102,7 +102,6 @@ import androidx.mediarouter.app.MediaRouteButton
 import ani.dantotsu.GesturesListener
 import ani.dantotsu.NoPaddingArrayAdapter
 import ani.dantotsu.R
-import ani.dantotsu.addons.download.DownloadAddonManager
 import ani.dantotsu.brightnessConverter
 import ani.dantotsu.circularReveal
 import ani.dantotsu.connections.anilist.Anilist
@@ -1697,24 +1696,16 @@ class ExoplayerView :
                             directory.listFiles().firstOrNull {
                                 it.name?.endsWith(".mp4") == true ||
                                         it.name?.endsWith(".mkv") == true ||
-                                        it.name?.endsWith(
-                                            ".${
-                                                Injekt
-                                                    .get<DownloadAddonManager>()
-                                                    .extension
-                                                    ?.extension
-                                                    ?.getFileExtension()
-                                                    ?.first ?: "ts"
-                                            }",
-                                        ) ==
-                                        true
+                                        it.name?.endsWith(".ts") == true ||
+                                        it.name?.endsWith(".webm") == true
                             }
                         if (docFile != null) {
                             val uri = docFile.uri
                             val downloadedMimeType =
                                 when (docFile.extension) {
-                                    "mp4" -> MimeTypes.APPLICATION_MP4
                                     "mkv" -> MimeTypes.APPLICATION_MATROSKA
+                                    "ts" -> "application/mp2t"
+                                    "webm" -> "video/webm"
                                     else -> MimeTypes.APPLICATION_MP4
                                 }
                             MediaItem
