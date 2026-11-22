@@ -161,7 +161,7 @@ class DownloadsActivity : AppCompatActivity() {
             val binding = holder.binding
             binding.itemDownloadQueueTitle.text = entry.title
             binding.itemDownloadQueueEpisode.text =
-                context.getString(R.string.episode) + entry.episode
+                this@DownloadsActivity.getString(R.string.episode) + entry.episode
             binding.itemDownloadQueueProgress.progress = entry.percent
             binding.itemDownloadQueueStatus.text = when (entry.status) {
                 "Downloading" -> "Downloading ${entry.percent}%"

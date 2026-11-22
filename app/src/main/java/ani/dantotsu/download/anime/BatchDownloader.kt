@@ -1,6 +1,8 @@
 package ani.dantotsu.download.anime
 
 import android.app.Activity
+import android.content.Intent
+import ani.dantotsu.download.video.Helper
 import ani.dantotsu.media.Media
 import ani.dantotsu.media.MediaDetailsViewModel
 import ani.dantotsu.media.anime.AnimeWatchFragment
@@ -60,26 +62,29 @@ object BatchDownloader {
                                 Logger.log("BATCH: could not resolve episode $number, skipping")
                                 skipped.incrementAndGet()
                             } else {
+                                val resolvedEpisode = ep
+                                val resolvedVideo = video
+                                val episodeNumber: String = resolvedEpisode.number
                                 withContext(Dispatchers.Main) {
                                     Helper.startAnimeDownloadService(
                                         activity,
                                         title,
-                                        ep.number,
-                                        video,
+                                        episodeNumber,
+                                        resolvedVideo,
                                         emptyList(),
                                         emptyList(),
                                         media,
-                                        ep.thumb?.url ?: media.banner ?: media.cover,
+                                        resolvedEpisode.thumb?.url ?: media.banner ?: media.cover,
                                         silent = true
                                     )
-                                    activity.sendBroadcast(
-                                        android.content.Intent(
-                                            AnimeWatchFragment.ACTION_DOWNLOAD_STARTED
-                                        ).putExtra(
-                                            AnimeWatchFragment.EXTRA_EPISODE_NUMBER,
-                                            ep.number
-                                        )
+                                    val broadcast = Intent(
+                                        AnimeWatchFragment.ACTION_DOWNLOAD_STARTED
                                     )
+                                    broadcast.putExtra(
+                                        AnimeWatchFragment.EXTRA_EPISODE_NUMBER,
+                                        episodeNumber
+                                    )
+                                    activity.sendBroadcast(broadcast)
                                 }
                                 started.incrementAndGet()
                             }
