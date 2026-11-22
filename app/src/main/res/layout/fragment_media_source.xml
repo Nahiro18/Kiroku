@@ -112,7 +112,7 @@
                 android:focusable="true"
                 android:fontFamily="@font/poppins_bold"
                 android:padding="8dp"
-                android:text="Download via 1DM"
+                android:text="Download Selected"
                 android:textColor="?attr/colorOnBackground"
                 android:textSize="12sp" />
 

@@ -406,20 +406,44 @@ class AnimeWatchFragment : Fragment() {
             binding.batchCount.text = "$count selected"
             if (count == 0 && !episodeAdapter.batchMode) binding.batchBar.isVisible = false
         }
+        // Keep the bar in sync when the adapter is recreated (view/style/source change).
+        binding.batchBar.isVisible =
+            episodeAdapter.batchMode || episodeAdapter.selectedForBatch.isNotEmpty()
+        binding.batchCount.text = "${episodeAdapter.selectedForBatch.size} selected"
         binding.batchSelectAll.setOnClickListener { episodeAdapter.selectAllBatch() }
         binding.batchCancel.setOnClickListener {
+            batchQueue = null
             episodeAdapter.exitBatchMode()
             binding.batchBar.isVisible = false
         }
         binding.batchDownload.setOnClickListener {
-            val selected = episodeAdapter.selectedForBatch.sorted().toMutableList()
+            val selected = episodeAdapter.selectedForBatch.sortedWith(
+                compareBy { MediaNameAdapter.findEpisodeNumber(it) ?: Float.MAX_VALUE }
+            )
             if (selected.isEmpty()) {
                 snackString("No episodes selected")
                 return@setOnClickListener
             }
-            batchQueue = selected
-            openNextBatchDownloader()
+            fun startBatch() {
+                batchQueue = selected.toMutableList()
+                openNextBatchDownloader()
+            }
+            val activity = activity ?: return@setOnClickListener
+            if (!hasDirAccess(activity)) {
+                (activity as? MediaDetailsActivity)?.accessAlertDialog(activity.launcher) { success ->
+                    if (success) startBatch()
+                    else snackString(getString(R.string.download_permission_required))
+                } ?: snackString(getString(R.string.download_permission_required))
+            } else {
+                startBatch()
+            }
         }
+    }
+
+    private fun finishBatchDownload() {
+        batchQueue = null
+        if (::episodeAdapter.isInitialized) episodeAdapter.exitBatchMode()
+        _binding?.batchBar?.isVisible = false
     }
 
     /**
@@ -430,39 +454,49 @@ class AnimeWatchFragment : Fragment() {
     private fun openNextBatchDownloader() {
         val queue = batchQueue ?: return
         Logger.log("BATCH: openNextBatchDownloader queue=$queue")
-        if (queue.isEmpty()) {
-            batchQueue = null
-            episodeAdapter.exitBatchMode()
-            binding.batchBar.isVisible = false
-            Logger.log("BATCH: queue empty, exiting batch mode")
-            return
+
+        // Skip missing episodes without recursing, so very large selections can't overflow the stack.
+        while (queue.isNotEmpty()) {
+            val epNum = queue.removeAt(0)
+            val ep = media.anime?.episodes?.get(epNum)
+            if (ep == null) {
+                Logger.log("BATCH: episode $epNum not found, skipping")
+                continue
+            }
+            media.anime?.selectedEpisode = epNum
+            val selector = SelectorDialogFragment.newInstance(
+                media.selected?.server,
+                false,
+                null,
+                isDownload = true
+            )
+            // Both callbacks can fire for one sheet (confirm then dismiss); only advance once.
+            var advanced = false
+            val advance = {
+                if (!advanced) {
+                    advanced = true
+                    if (isAdded) openNextBatchDownloader()
+                }
+            }
+            selector.onBatchEpisodeDownloaded = {
+                Logger.log("BATCH: episode $epNum download confirmed, advancing")
+                advance()
+            }
+            selector.onBatchEpisodeSkipped = {
+                Logger.log("BATCH: episode $epNum skipped, advancing")
+                advance()
+            }
+            try {
+                selector.show(requireActivity().supportFragmentManager, "dialog")
+                Logger.log("BATCH: showed selector for episode $epNum")
+                return
+            } catch (e: Exception) {
+                Logger.log("BATCH: failed to show selector for $epNum: ${e.message}")
+            }
         }
-        val epNum = queue.removeAt(0)
-        val ep = media.anime?.episodes?.get(epNum)
-        if (ep == null) {
-            snackString("Episode $epNum not found")
-            Logger.log("BATCH: episode $epNum not found")
-            openNextBatchDownloader()
-            return
-        }
-        media.anime?.selectedEpisode = epNum
-        val manager = requireActivity().supportFragmentManager
-        val selector = SelectorDialogFragment.newInstance(
-            media.selected?.server,
-            false,
-            null,
-            isDownload = true
-        )
-        selector.onBatchEpisodeDownloaded = {
-            Logger.log("BATCH: episode $epNum download confirmed, advancing")
-            openNextBatchDownloader()
-        }
-        try {
-            selector.show(manager, "dialog")
-            Logger.log("BATCH: showed selector for episode $epNum")
-        } catch (e: Exception) {
-            Logger.log("BATCH: failed to show selector for $epNum: ${e.message}")
-        }
+
+        Logger.log("BATCH: queue empty, exiting batch mode")
+        finishBatchDownload()
     }
 
     fun openSettings(pkg: AnimeExtension.Installed) {

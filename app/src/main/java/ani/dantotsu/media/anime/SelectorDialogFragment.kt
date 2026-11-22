@@ -86,6 +86,27 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
     // Called once a download is confirmed so a caller can advance to the next episode in a batch.
     var onBatchEpisodeDownloaded: ((String) -> Unit)? = null
 
+    // Called when the sheet is dismissed without a download being confirmed, so a batch
+    // download doesn't stall on an episode the user backed out of.
+    var onBatchEpisodeSkipped: (() -> Unit)? = null
+
+    private var batchAdvanceScheduled = false
+
+    /**
+     * If this sheet is part of a batch download and closes without a confirmed download,
+     * tell the caller to move on to the next episode instead of stalling the batch.
+     */
+    private fun scheduleBatchSkipIfNeeded() {
+        val onSkipped = onBatchEpisodeSkipped ?: return
+        if (batchAdvanceScheduled) return
+        // Give the confirm path a moment to mark the advance as scheduled.
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (batchAdvanceScheduled) return@postDelayed
+            Logger.log("BATCH: selector dismissed without download, advancing")
+            onSkipped()
+        }, 300)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         arguments?.let {
@@ -524,6 +545,7 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
                         media!!.anime!!.episodes!![media!!.anime!!.selectedEpisode!!]!!,
                         media!!.userPreferredName
                     )
+                    batchAdvanceScheduled = true
                     val onConfirmed = onBatchEpisodeDownloaded
                     if (onConfirmed != null) {
                         val epNum =
@@ -783,6 +805,7 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
     override fun onSaveInstanceState(outState: Bundle) {}
 
     override fun onDismiss(dialog: DialogInterface) {
+        scheduleBatchSkipIfNeeded()
         if (launch == false) {
             activity?.hideSystemBars()
             model.epChanged.postValue(true)
