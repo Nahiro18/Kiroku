@@ -86,7 +86,7 @@ android {
     }
     kotlinOptions {
         jvmTarget = '17'
-        freeCompilerArgs = ["-Xcontext-receivers", "-Xmulti-platform"]
+        freeCompilerArgs = ["-Xcontext-receivers", "-Xmulti-platform", "-Xskip-metadata-version-check"]
     }
     namespace 'ani.dantotsu'
     
@@ -202,6 +202,12 @@ dependencies {
 
 //  TensorFlow Lite (anime person detector for image-based search)
     implementation 'org.tensorflow:tensorflow-lite:2.16.1'
+
+//  CloudStream extension runtime (real library + API models used by .cs3 plugins)
+    implementation('com.github.recloudstream.cloudstream:library-android:v4.7.0') {
+        exclude(group: 'com.github.teamnewpipe', module: 'NewPipeExtractor')
+        exclude(group: 'com.uwetrottmann.tmdb2', module: 'tmdb-java')
+    }
 
 //  Aniyomi
     implementation 'io.reactivex:rxjava:1.3.8'

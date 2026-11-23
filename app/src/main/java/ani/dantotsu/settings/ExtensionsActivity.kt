@@ -74,8 +74,8 @@ class ExtensionsActivity : AppCompatActivity() {
 
             override fun createFragment(position: Int): Fragment {
                 return when (position) {
-                    0 -> InstalledAnimeExtensionsFragment()
-                    1 -> AnimeExtensionsFragment()
+                    0 -> UnifiedAnimeExtensionsFragment.newInstance(installed = true)
+                    1 -> UnifiedAnimeExtensionsFragment.newInstance(installed = false)
                     2 -> InstalledMangaExtensionsFragment()
                     3 -> MangaExtensionsFragment()
                     4 -> InstalledNovelExtensionsFragment()
@@ -191,27 +191,41 @@ class ExtensionsActivity : AppCompatActivity() {
 
     private fun generateRepositoryButton(type: MediaType) {
         binding.openSettingsButton.setOnClickListener {
-            val repos: Set<String> = when (type) {
-                MediaType.ANIME -> {
-                    PrefManager.getVal(PrefName.AnimeExtensionRepos)
+            if (type == MediaType.ANIME) {
+                // Aniyomi and CloudStream keep completely separate repository lists.
+                customAlertDialog().apply {
+                    setTitle("Repositories")
+                    singleChoiceItems(
+                        arrayOf("Aniyomi repositories", "CloudStream repositories"),
+                        -1
+                    ) { which ->
+                        if (which == 1) {
+                            CloudStreamRepositoryBottomSheet()
+                                .show(supportFragmentManager, "cloudstream_repo")
+                        } else {
+                            showAniyomiRepositories(type)
+                        }
+                    }
+                    show()
                 }
-
-                MediaType.MANGA -> {
-                    PrefManager.getVal(PrefName.MangaExtensionRepos)
-                }
-
-                MediaType.NOVEL -> {
-                    PrefManager.getVal(PrefName.NovelExtensionRepos)
-                }
+            } else {
+                showAniyomiRepositories(type)
             }
-            AddRepositoryBottomSheet.newInstance(
-                type,
-                repos.toList(),
-                AddRepositoryBottomSheet::addRepo,
-                AddRepositoryBottomSheet::removeRepo
-
-            ).show(supportFragmentManager, "add_repo")
         }
+    }
+
+    private fun showAniyomiRepositories(type: MediaType) {
+        val repos: Set<String> = when (type) {
+            MediaType.ANIME -> PrefManager.getVal(PrefName.AnimeExtensionRepos)
+            MediaType.MANGA -> PrefManager.getVal(PrefName.MangaExtensionRepos)
+            MediaType.NOVEL -> PrefManager.getVal(PrefName.NovelExtensionRepos)
+        }
+        AddRepositoryBottomSheet.newInstance(
+            type,
+            repos.toList(),
+            AddRepositoryBottomSheet::addRepo,
+            AddRepositoryBottomSheet::removeRepo
+        ).show(supportFragmentManager, "add_repo")
     }
 }
 

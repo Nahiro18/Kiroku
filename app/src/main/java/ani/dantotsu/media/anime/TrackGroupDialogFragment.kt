@@ -40,9 +40,48 @@ class TrackGroupDialogFragment(
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        if (type == TRACK_TYPE_AUDIO) binding.selectionTitle.text = getString(R.string.audio_tracks)
+        binding.selectionTitle.text = if (type == TRACK_TYPE_AUDIO) {
+            getString(R.string.audio_and_language)
+        } else {
+            getString(R.string.subtitles)
+        }
         binding.subtitlesRecycler.layoutManager = LinearLayoutManager(requireContext())
         binding.subtitlesRecycler.adapter = TrackGroupAdapter()
+    }
+
+    private fun overrideName(position: Int): Pair<String, String>? {
+        val names = overrideTrackNames ?: return null
+        val index = position - (trackGroups.size - names.size)
+        return names.getOrNull(index)
+    }
+
+    @SuppressLint("SetTextI18n")
+    private fun audioLabel(trackGroup: Tracks.Group, position: Int): String {
+        val format = trackGroup.getTrackFormat(0)
+        val override = overrideName(position)
+        val language = format.language
+        val languageName = when {
+            override != null -> "[${override.second}] ${override.first}"
+            language.isNullOrBlank() || language == "und" ->
+                format.label ?: getString(R.string.unknown_track, "Track ${position + 1}")
+            language == "none" -> getString(R.string.disabled_track)
+            else -> {
+                val display = Locale.forLanguageTag(language).displayName
+                    .ifBlank { language.uppercase(Locale.ROOT) }
+                "[$language] $display"
+            }
+        }
+        val codec = format.codecs
+            ?: format.sampleMimeType?.substringAfterLast('/')?.uppercase(Locale.ROOT)
+        val channels = when {
+            format.channelCount <= 0 -> null
+            format.channelCount == 1 -> "Mono"
+            format.channelCount == 2 -> "Stereo"
+            else -> "${format.channelCount} channels"
+        }
+        return listOfNotNull(languageName, codec, channels)
+            .filter { it.isNotBlank() }
+            .joinToString(" • ")
     }
 
     inner class TrackGroupAdapter : RecyclerView.Adapter<TrackGroupAdapter.StreamViewHolder>() {
@@ -62,15 +101,14 @@ class TrackGroupDialogFragment(
         @OptIn(UnstableApi::class)
         override fun onBindViewHolder(holder: StreamViewHolder, position: Int) {
             val binding = holder.binding
-            trackGroups[position].let { trackGroup ->
-                if (overrideTrackNames?.getOrNull(
-                        position - (trackGroups.size - (overrideTrackNames?.size ?: 0))
-                    ) != null
-                ) {
-                    val pair =
-                        overrideTrackNames!![position - (trackGroups.size - overrideTrackNames!!.size)]
-                    binding.subtitleTitle.text =
-                        "[${pair.second}] ${pair.first}"
+            val trackGroup = trackGroups[position]
+
+            if (type == TRACK_TYPE_AUDIO) {
+                binding.subtitleTitle.text = audioLabel(trackGroup, position)
+            } else {
+                val override = overrideName(position)
+                if (override != null) {
+                    binding.subtitleTitle.text = "[${override.second}] ${override.first}"
                 } else when (val language = trackGroup.getTrackFormat(0).language?.lowercase()) {
                     null -> {
                         binding.subtitleTitle.text =
@@ -101,14 +139,14 @@ class TrackGroupDialogFragment(
                         } ?: getString(R.string.unknown_track, language)
                     }
                 }
-                if (trackGroup.isSelected) {
-                    val selected = "✔ ${binding.subtitleTitle.text}"
-                    binding.subtitleTitle.text = selected
-                }
-                binding.root.setOnClickListener {
-                    dismiss()
-                    instance.onSetTrackGroupOverride(trackGroup, type)
-                }
+            }
+
+            if (trackGroup.isSelected) {
+                binding.subtitleTitle.text = "✔ ${binding.subtitleTitle.text}"
+            }
+            binding.root.setOnClickListener {
+                dismiss()
+                instance.onSetTrackGroupOverride(trackGroup, type)
             }
         }
 

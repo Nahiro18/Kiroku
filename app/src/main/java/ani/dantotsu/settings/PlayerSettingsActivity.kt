@@ -31,6 +31,7 @@ import com.google.android.material.chip.Chip
 import com.google.android.material.slider.Slider.OnChangeListener
 import eltos.simpledialogfragment.SimpleDialog
 import eltos.simpledialogfragment.color.SimpleColorWheelDialog
+import java.util.Locale
 import kotlin.math.roundToInt
 
 class PlayerSettingsActivity :
@@ -121,6 +122,45 @@ class PlayerSettingsActivity :
                     PrefManager.setVal(PrefName.DefaultSpeed, i)
                     binding.playerSettingsSpeed.text =
                         getString(R.string.default_playback_speed, speedsName[i])
+                }
+                show()
+            }
+        }
+
+        val audioLanguageCodes = arrayOf(
+            "auto", "original", "en", "hi", "ja", "ko", "zh", "es", "pt", "fr",
+            "de", "ta", "te", "id", "ar", "ru", "th", "fil", "tr", "vi"
+        )
+        val audioLanguageNames = audioLanguageCodes.map { code ->
+            when (code) {
+                "auto" -> getString(R.string.audio_language_auto)
+                "original" -> getString(R.string.audio_language_original)
+                else -> Locale.forLanguageTag(code).displayName
+                    .replaceFirstChar { it.titlecase(Locale.ROOT) }
+            }
+        }.toTypedArray()
+        fun audioLanguageLabel(code: String): String = when (code) {
+            "auto" -> getString(R.string.audio_language_auto)
+            "original" -> getString(R.string.audio_language_original)
+            else -> Locale.forLanguageTag(code).displayName
+                .replaceFirstChar { it.titlecase(Locale.ROOT) }
+        }
+        binding.playerSettingsAudioLanguage.text = getString(
+            R.string.preferred_audio_language,
+            audioLanguageLabel(PrefManager.getVal(PrefName.PreferredAudioLanguage))
+        )
+        binding.playerSettingsAudioLanguage.setOnClickListener {
+            val current = audioLanguageCodes.indexOf(
+                PrefManager.getVal<String>(PrefName.PreferredAudioLanguage)
+            ).coerceAtLeast(0)
+            customAlertDialog().apply {
+                setTitle(getString(R.string.audio_and_language))
+                singleChoiceItems(audioLanguageNames, current) { index ->
+                    PrefManager.setVal(PrefName.PreferredAudioLanguage, audioLanguageCodes[index])
+                    binding.playerSettingsAudioLanguage.text = getString(
+                        R.string.preferred_audio_language,
+                        audioLanguageNames[index]
+                    )
                 }
                 show()
             }

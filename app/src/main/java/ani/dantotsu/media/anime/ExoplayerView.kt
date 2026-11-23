@@ -236,6 +236,9 @@ class ExoplayerView :
     private var hasExtSubtitles = false
     private var audioLanguages = mutableListOf<Pair<String, String>>()
 
+    /** Audio language picked by the user, re-applied when new tracks are reported. */
+    private var selectedAudioLanguage: String? = null
+
     companion object {
         var initialized = false
         lateinit var media: Media
@@ -1801,8 +1804,13 @@ class ExoplayerView :
                 .setRendererDisabled(TRACK_TYPE_TEXT, false)
                 .setMaxVideoSize(1, 1)
         // .setOverrideForType(TrackSelectionOverride(trackSelector, TRACK_TYPE_VIDEO))
-        if (PrefManager.getVal(PrefName.SettingsPreferDub)) {
-            parameters.setPreferredAudioLanguage(Locale.getDefault().language)
+        val preferredAudio = PrefManager.getVal<String>(PrefName.PreferredAudioLanguage)
+        when {
+            preferredAudio.isNotBlank() && preferredAudio != "auto" && preferredAudio != "original" ->
+                parameters.setPreferredAudioLanguage(preferredAudio)
+
+            PrefManager.getVal(PrefName.SettingsPreferDub) ->
+                parameters.setPreferredAudioLanguage(Locale.getDefault().language)
         }
         trackSelector.setParameters(parameters)
 
@@ -2302,6 +2310,12 @@ class ExoplayerView :
         index: Int = 0,
     ) {
         val isDisabled = trackGroup.getTrackFormat(0).language == "none"
+        if (type == TRACK_TYPE_AUDIO) {
+            val language = trackGroup.getTrackFormat(index).language
+            if (!language.isNullOrBlank() && language != "none" && language != "und") {
+                selectedAudioLanguage = language
+            }
+        }
         exoPlayer.trackSelectionParameters =
             exoPlayer.trackSelectionParameters
                 .buildUpon()
@@ -2347,6 +2361,23 @@ class ExoplayerView :
                         return@forEach
                     }
                 }
+            }
+        }
+        val desiredAudioLanguage = selectedAudioLanguage
+        if (!desiredAudioLanguage.isNullOrBlank()) {
+            val hasMatch = audioTracks.any { group ->
+                (0 until group.length).any { index ->
+                    group.getTrackFormat(index).language.equals(desiredAudioLanguage, true)
+                }
+            }
+            if (hasMatch &&
+                exoPlayer.trackSelectionParameters.preferredAudioLanguages.firstOrNull()
+                    ?.equals(desiredAudioLanguage, true) != true
+            ) {
+                exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters
+                    .buildUpon()
+                    .setPreferredAudioLanguage(desiredAudioLanguage)
+                    .build()
             }
         }
         exoAudioTrack.isVisible = audioTracks.size > 1

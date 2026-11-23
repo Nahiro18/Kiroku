@@ -1170,4 +1170,16 @@ Non quae tempore quo provident laudantium qui illo dolor vel quia dolor et exerc
     <string name="download_current_section">Download Current Section</string>
     <string name="download_all_episodes">Download All Episodes</string>
     <string name="n_episodes">%1$d episodes</string>
+    <string name="provider_all">All</string>
+    <string name="provider_aniyomi">Aniyomi</string>
+    <string name="provider_cloudstream">CloudStream</string>
+    <string name="cloudstream_add_repository">Add Repository to CloudStream</string>
+    <string name="cloudstream_repository_desc">CloudStream repositories are managed separately from Aniyomi repositories.</string>
+    <string name="cloudstream_repository_invalid">Enter a repository URL or owner/repo</string>
+    <string name="cloudstream_repositories">CloudStream repositories</string>
+    <string name="cloudstream_repositories_desc">Manage repositories that provide CloudStream extensions</string>
+    <string name="audio_and_language">Audio &amp; Language</string>
+    <string name="preferred_audio_language">Preferred audio language: %1$s</string>
+    <string name="audio_language_auto">Auto</string>
+    <string name="audio_language_original">Original audio</string>
 </resources>

@@ -50,6 +50,15 @@
             android:text="@string/extension_version"
             android:textSize="10sp"
             tools:ignore="SmallSp" />
+
+        <TextView
+            android:id="@+id/extensionProviderTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/poppins_semi_bold"
+            android:textSize="9sp"
+            android:visibility="gone"
+            tools:ignore="SmallSp" />
     </LinearLayout>
 
     <TextView
