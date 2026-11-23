@@ -6,6 +6,7 @@ import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import android.app.Application
+import ani.dantotsu.addons.download.DownloadAddonManager
 import ani.dantotsu.addons.torrent.TorrentAddonManager
 import ani.dantotsu.aniyomi.anime.custom.AppModule
 import ani.dantotsu.aniyomi.anime.custom.PreferenceModule
@@ -47,6 +48,7 @@ class App : Application() {
     private lateinit var lnReaderPluginManager: ani.dantotsu.parsers.novel.lnreader.LnReaderPluginManager
     private lateinit var lnReaderJsExecutor: ani.dantotsu.parsers.novel.lnreader.LnReaderJsExecutor
     private lateinit var torrentAddonManager: TorrentAddonManager
+    private lateinit var downloadAddonManager: DownloadAddonManager
 
     init {
         instance = this
@@ -148,10 +150,12 @@ class App : Application() {
                 Logger.log(e)
             }
         }
-        // Initialize the torrent addon manager so an installed torrent addon is detected
-        // and its install/update/uninstall listeners are registered at startup.
+        // Initialize the addon managers so installed download/torrent addons are detected and their
+        // install/update/uninstall listeners are registered at startup.
         applicationScope.launch {
             kotlinx.coroutines.delay(3000)
+            downloadAddonManager = Injekt.get()
+            downloadAddonManager.init()
             torrentAddonManager = Injekt.get()
             torrentAddonManager.init()
         }

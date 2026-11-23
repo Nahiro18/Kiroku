@@ -52,7 +52,7 @@ object Helper {
         sourceMedia: Media? = null,
         episodeImage: String? = null,
         silent: Boolean = false
-    ) {
+    ): Boolean {
         if (!isNotificationPermissionGranted(context)) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 ActivityCompat.requestPermissions(
@@ -91,7 +91,7 @@ object Helper {
 
         if (downloadCheck) {
             // Batch downloads must never stop for a dialog: an existing file is simply skipped.
-            if (silent) return
+            if (silent) return false
             context.customAlertDialog().apply {
                 setTitle("Download Exists")
                 setMessage("A download for this episode already exists. Do you want to overwrite it?")
@@ -112,9 +112,10 @@ object Helper {
                 setNegButton(R.string.no)
                 show()
             }
-        } else {
-            enqueue(animeDownloadTask)
+            return true
         }
+        enqueue(animeDownloadTask)
+        return true
     }
 
     private fun isNotificationPermissionGranted(context: Context): Boolean {

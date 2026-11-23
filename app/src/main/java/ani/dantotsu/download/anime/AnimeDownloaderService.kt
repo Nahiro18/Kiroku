@@ -20,6 +20,7 @@ import androidx.core.content.ContextCompat
 import androidx.documentfile.provider.DocumentFile
 import androidx.media3.common.util.UnstableApi
 import ani.dantotsu.FileUrl
+import ani.dantotsu.addons.download.DownloadAddonManager
 import ani.dantotsu.R
 import ani.dantotsu.connections.crashlytics.CrashlyticsInterface
 import ani.dantotsu.defaultHeaders
@@ -249,7 +250,6 @@ class AnimeDownloaderService : Service() {
     suspend fun download(task: AnimeDownloadTask) {
         val taskName = getTaskName(task.title, task.episode)
         withContext(Dispatchers.IO) {
-            var createdFile: DocumentFile? = null
             try {
                 builder.setContentText("Downloading $taskName")
                 DownloadQueueTracker.upsert(task.title, task.episode, "Downloading", 0)
@@ -261,65 +261,17 @@ class AnimeDownloaderService : Service() {
                     false,
                     task.title
                 ) ?: throw Exception("No downloads folder set. Pick one in Settings first.")
-                val outputDir = getSubDirectory(
-                    this@AnimeDownloaderService,
-                    MediaType.ANIME,
-                    true,
-                    task.title,
-                    task.episode
-                ) ?: throw Exception("No downloads folder set. Pick one in Settings first.")
 
                 val url = task.video.file.url
                 if (url.startsWith("magnet:") || url.endsWith(".torrent", ignoreCase = true)) {
                     throw Exception("Torrent episodes cannot be downloaded directly")
                 }
 
-                val headers = task.video.file.headers.toMutableMap()
-                if (headers.keys.none { it.equals("User-Agent", ignoreCase = true) }) {
-                    headers["User-Agent"] = defaultHeaders["User-Agent"] ?: ""
-                }
-
-                val predicted = NativeMediaDownloader.predictExtension(url, task.video.format)
-                val outputName = taskName.findValidName()
-                outputDir.findFile("$outputName.$predicted")?.delete()
-                var file = outputDir.createFile(mimeFor(predicted), "$outputName.$predicted")
-                    ?: throw Exception("Failed to create the episode file")
-                createdFile = file
-
-                var lastNotified = 0L
-                val result = file.openOutputStream(this@AnimeDownloaderService, false)?.use { stream ->
-                    NativeMediaDownloader.download(
-                        url = url,
-                        headers = headers,
-                        videoType = task.video.format,
-                        output = stream
-                    ) { percent, _, _ ->
-                        val shown = percent.coerceIn(0, 99)
-                        DownloadQueueTracker.upsert(
-                            task.title,
-                            task.episode,
-                            "Downloading",
-                            shown
-                        )
-                        broadcastDownloadProgress(task.episode, shown)
-                        val now = System.currentTimeMillis()
-                        if (now - lastNotified > 2000) {
-                            lastNotified = now
-                            builder.setProgress(100, shown, false)
-                            postNotification()
-                        }
-                    }
-                } ?: throw Exception("Could not open the episode file for writing")
-
-                if (result.extension != predicted) {
-                    // The server answered with another container than the link suggested.
-                    if (file.renameTo("$outputName.${result.extension}")) {
-                        file = outputDir.findFile("$outputName.${result.extension}") ?: file
-                        createdFile = file
-                    }
-                }
-
-                Logger.log("Downloaded $taskName (${result.bytes} bytes)")
+                // The Dantotsu download add-on is the preferred engine when it is installed. The
+                // built-in downloader takes over when the add-on is missing, broken, or fails on a
+                // source it cannot handle, so an episode never fails just because of the add-on.
+                val addonDone = downloadWithAddon(task, taskName)
+                if (!addonDone) downloadNatively(task, taskName)
 
                 builder.setContentText("$taskName Download completed")
                 builder.setProgress(0, 0, false)
@@ -345,20 +297,12 @@ class AnimeDownloaderService : Service() {
                 saveMediaInfo(task, baseOutputDir)
             } catch (e: CancellationException) {
                 Logger.log("Download cancelled: $taskName")
-                try {
-                    createdFile?.delete()
-                } catch (_: Exception) {
-                }
                 DownloadQueueTracker.removeByTaskName(taskName)
                 throw e
             } catch (e: Exception) {
                 Logger.log("Exception while downloading file: ${e.message}")
                 snackString("Download failed: ${e.message}")
                 e.printStackTrace()
-                try {
-                    createdFile?.delete()
-                } catch (_: Exception) {
-                }
                 Injekt.get<CrashlyticsInterface>().logException(e)
                 DownloadQueueTracker.upsert(
                     task.title,
@@ -368,6 +312,186 @@ class AnimeDownloaderService : Service() {
                 )
                 broadcastDownloadFailed(task.episode)
             }
+        }
+    }
+
+    /** Engine 1: the Dantotsu download add-on (FFmpeg). Returns false when it cannot be used. */
+    private suspend fun downloadWithAddon(
+        task: AnimeDownloadTask,
+        taskName: String
+    ): Boolean = withContext(Dispatchers.IO) {
+        val addon = Injekt.get<DownloadAddonManager>().extension?.extension
+            ?: return@withContext false
+        val fileExtension = try {
+            addon.getFileExtension()
+        } catch (_: Exception) {
+            return@withContext false
+        }
+        val outputDir = getSubDirectory(
+            this@AnimeDownloaderService,
+            MediaType.ANIME,
+            true,
+            task.title,
+            task.episode
+        ) ?: return@withContext false
+
+        val outputName = taskName.findValidName()
+        val fileName = "$outputName.${fileExtension.first}"
+        outputDir.findFile(fileName)?.delete()
+        val file = outputDir.createFile(fileExtension.second, fileName)
+            ?: return@withContext false
+
+        var session = -1L
+        try {
+            val headers = task.video.file.headers.toMutableMap()
+            if (headers.keys.none { it.equals("User-Agent", ignoreCase = true) }) {
+                headers["User-Agent"] = defaultHeaders["User-Agent"] ?: ""
+            }
+
+            var durationSeconds = 0.0
+            try {
+                addon.executeFFProbe(task.video.file.url, headers) { value ->
+                    value.toDoubleOrNull()?.let { if (it > 0) durationSeconds = it }
+                }
+            } catch (_: Exception) {
+            }
+
+            val path = addon.setDownloadPath(this@AnimeDownloaderService, file.uri)
+            var lastPercent = -1
+            session = addon.executeFFMpeg(
+                task.video.file.url,
+                path,
+                headers,
+                task.subtitle,
+                task.audio
+            ) { milliseconds ->
+                if (milliseconds > 0 && durationSeconds > 0) {
+                    val shown = ((milliseconds / 1000.0) / durationSeconds * 100).toInt()
+                        .coerceIn(0, 99)
+                    if (shown != lastPercent) {
+                        lastPercent = shown
+                        DownloadQueueTracker.upsert(
+                            task.title,
+                            task.episode,
+                            "Downloading",
+                            shown
+                        )
+                        broadcastDownloadProgress(task.episode, shown)
+                    }
+                }
+            }
+
+            while (true) {
+                when (addon.getState(session)) {
+                    "COMPLETED" -> break
+                    "FAILED" -> throw Exception(
+                        addon.getStackTrace(session)?.lineSequence()?.firstOrNull()
+                            ?: "add-on reported a failure"
+                    )
+
+                    else -> delay(700)
+                }
+            }
+            if (addon.hadError(session)) throw Exception("add-on finished with an error")
+            if (file.length() <= 0L) throw Exception("add-on produced an empty file")
+
+            Logger.log("Downloaded $taskName with the Dantotsu add-on (${file.length()} bytes)")
+            true
+        } catch (e: CancellationException) {
+            try {
+                if (session > 0) addon.cancelDownload(session)
+            } catch (_: Exception) {
+            }
+            try {
+                file.delete()
+            } catch (_: Exception) {
+            }
+            throw e
+        } catch (e: Exception) {
+            Logger.log("Add-on failed for $taskName, using the built-in downloader: ${e.message}")
+            try {
+                if (session > 0) addon.cancelDownload(session)
+            } catch (_: Exception) {
+            }
+            try {
+                file.delete()
+            } catch (_: Exception) {
+            }
+            false
+        }
+    }
+
+    /** Engine 2: the built-in multi-threaded HTTP/HLS downloader. */
+    private suspend fun downloadNatively(
+        task: AnimeDownloadTask,
+        taskName: String
+    ): Unit = withContext(Dispatchers.IO) {
+        var createdFile: DocumentFile? = null
+        try {
+            val outputDir = getSubDirectory(
+                this@AnimeDownloaderService,
+                MediaType.ANIME,
+                true,
+                task.title,
+                task.episode
+            ) ?: throw Exception("No downloads folder set. Pick one in Settings first.")
+
+            val headers = task.video.file.headers.toMutableMap()
+            if (headers.keys.none { it.equals("User-Agent", ignoreCase = true) }) {
+                headers["User-Agent"] = defaultHeaders["User-Agent"] ?: ""
+            }
+
+            val predicted = NativeMediaDownloader.predictExtension(
+                task.video.file.url,
+                task.video.format
+            )
+            val outputName = taskName.findValidName()
+            outputDir.findFile("$outputName.$predicted")?.delete()
+            var file = outputDir.createFile(mimeFor(predicted), "$outputName.$predicted")
+                ?: throw Exception("Failed to create the episode file")
+            createdFile = file
+
+            var lastNotified = 0L
+            val result = file.openOutputStream(this@AnimeDownloaderService, false)?.use { stream ->
+                NativeMediaDownloader.download(
+                    url = task.video.file.url,
+                    headers = headers,
+                    videoType = task.video.format,
+                    output = stream,
+                    tempDir = cacheDir
+                ) { percent, _, _ ->
+                    val shown = percent.coerceIn(0, 99)
+                    DownloadQueueTracker.upsert(
+                        task.title,
+                        task.episode,
+                        "Downloading",
+                        shown
+                    )
+                    broadcastDownloadProgress(task.episode, shown)
+                    val now = System.currentTimeMillis()
+                    if (now - lastNotified > 2000) {
+                        lastNotified = now
+                        builder.setProgress(100, shown, false)
+                        postNotification()
+                    }
+                }
+            } ?: throw Exception("Could not open the episode file for writing")
+
+            if (result.extension != predicted) {
+                // The server answered with another container than the link suggested.
+                if (file.renameTo("$outputName.${result.extension}")) {
+                    file = outputDir.findFile("$outputName.${result.extension}") ?: file
+                    createdFile = file
+                }
+            }
+
+            Logger.log("Downloaded $taskName (${result.bytes} bytes)")
+        } catch (e: Exception) {
+            try {
+                createdFile?.delete()
+            } catch (_: Exception) {
+            }
+            throw e
         }
     }
 

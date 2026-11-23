@@ -17,6 +17,13 @@ import java.net.URI
 import javax.crypto.Cipher
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
+import java.io.File
+import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
 
 /**
  * Downloads an episode using plain HTTP, without the FFmpeg download add-on.
@@ -37,6 +44,16 @@ object NativeMediaDownloader {
     private const val BUFFER_SIZE = 256 * 1024
     private const val PROGRESS_STEP = 512 * 1024L
     private const val SEGMENT_RETRIES = 4
+
+    /**
+     * Multi-threaded downloading: a single file is split into this many ranges that are fetched
+     * over separate connections at the same time, which is where most of the speed-up comes from.
+     * HLS segment fetches use the same number of connections.
+     */
+    private const val PARALLEL_CONNECTIONS = 4
+    private const val MIN_SEGMENT_BYTES = 2L * 1024 * 1024
+
+    private class RangeNotSupported(message: String) : IOException(message)
 
     data class Result(
         val extension: String,
@@ -62,6 +79,7 @@ object NativeMediaDownloader {
         headers: Map<String, String>,
         output: OutputStream,
         videoType: VideoType? = null,
+        tempDir: File? = null,
         onProgress: (percent: Int, bytes: Long, total: Long?) -> Unit = { _, _, _ -> }
     ): Result {
         val target = url.trim()
@@ -95,6 +113,23 @@ object NativeMediaDownloader {
             }
 
             val total = resp.body.contentLength().takeIf { it > 0 }
+            if (tempDir != null && total != null && total >= MIN_SEGMENT_BYTES) {
+                // This connection only provided the metadata; the body is fetched in ranges below.
+                resp.close()
+                val fast = try {
+                    downloadSegmented(client, target, headers, total, tempDir, output, onProgress)
+                } catch (e: RangeNotSupported) {
+                    Logger.log("Ranged requests unavailable, using one connection: ${e.message}")
+                    null
+                } catch (e: IOException) {
+                    Logger.log("Multi-threaded attempt failed, using one connection: ${e.message}")
+                    null
+                }
+                if (fast != null) {
+                    onProgress(100, fast, total)
+                    return Result(extensionFromUrl(target, contentType), fast)
+                }
+            }
             val buffer = ByteArray(BUFFER_SIZE)
             var written = 0L
             var lastReport = 0L
@@ -164,11 +199,21 @@ object NativeMediaDownloader {
             written += writeAll(output, fetchBytes(client, init, headers))
         }
 
-        segments.forEachIndexed { index, segment ->
-            val data = fetchSegment(client, segment, headers, keyCache)
-            output.write(data)
-            written += data.size
-            val shown = (((index + 1) * 100) / segments.size).coerceIn(0, 99)
+        // Segments are fetched over several connections at once and written in playlist order.
+        var index = 0
+        while (index < segments.size) {
+            val end = minOf(index + PARALLEL_CONNECTIONS, segments.size)
+            val batch = segments.subList(index, end)
+            val datas = coroutineScope {
+                batch.map { segment -> async(Dispatchers.IO) { fetchSegment(client, segment, headers, keyCache) } }
+                    .awaitAll()
+            }
+            datas.forEach { data ->
+                output.write(data)
+                written += data.size
+            }
+            index = end
+            val shown = ((index * 100) / segments.size).coerceIn(0, 99)
             onProgress(shown, written, null)
         }
         output.flush()
@@ -199,6 +244,121 @@ object NativeMediaDownloader {
             }
         }
         throw IOException("Could not download a video segment: ${last?.message}", last)
+    }
+
+    /**
+     * Splits [total] bytes into [PARALLEL_CONNECTIONS] ranges, downloads them at the same time into
+     * temporary files and joins them into [output]. Returns null when the server refuses ranges.
+     */
+    private suspend fun downloadSegmented(
+        client: OkHttpClient,
+        url: String,
+        headers: Map<String, String>,
+        total: Long,
+        tempDir: File,
+        output: OutputStream,
+        onProgress: (Int, Long, Long?) -> Unit
+    ): Long? = coroutineScope {
+        val partCount = minOf(PARALLEL_CONNECTIONS.toLong(), total / (MIN_SEGMENT_BYTES / 2))
+            .toInt().coerceAtLeast(1)
+        if (partCount < 2) return@coroutineScope null
+
+        val partSize = (total + partCount - 1) / partCount
+        val written = AtomicLong(0)
+        val stamp = System.nanoTime()
+        val parts = (0 until partCount).map { File(tempDir, "kiroku-part-$stamp-$it.tmp") }
+
+        try {
+            val jobs = parts.mapIndexed { i, part ->
+                async(Dispatchers.IO) {
+                    val start = i * partSize
+                    if (start >= total) return@async true
+                    val end = minOf(total - 1, start + partSize - 1)
+                    fetchRange(client, url, headers, start, end, part) { delta ->
+                        val now = written.addAndGet(delta)
+                        onProgress(percent(now, total), now, total)
+                    }
+                }
+            }
+            jobs.awaitAll()
+            var joined = 0L
+            withContext(Dispatchers.IO) {
+                parts.forEach { part ->
+                    part.inputStream().use { input ->
+                        val buffer = ByteArray(BUFFER_SIZE)
+                        while (true) {
+                            val read = input.read(buffer)
+                            if (read == -1) break
+                            output.write(buffer, 0, read)
+                            joined += read
+                        }
+                    }
+                }
+            }
+            output.flush()
+            Logger.log("Multi-threaded download finished: $partCount connections, $joined bytes")
+            joined
+        } finally {
+            parts.forEach { part -> runCatching { part.delete() } }
+        }
+    }
+
+    private suspend fun fetchRange(
+        client: OkHttpClient,
+        url: String,
+        headers: Map<String, String>,
+        start: Long,
+        end: Long,
+        target: File,
+        onDelta: (Long) -> Unit
+    ): Boolean {
+        val expected = end - start + 1
+        var last: Exception? = null
+        for (attempt in 1..SEGMENT_RETRIES) {
+            val context = currentCoroutineContext()
+            try {
+                target.delete()
+                val request = request(url, headers).newBuilder()
+                    .header("Range", "bytes=$start-$end")
+                    .build()
+                client.newCall(request).execute().use { response ->
+                    if (response.code == 200) {
+                        throw RangeNotSupported("The server ignored the Range header")
+                    }
+                    if (response.code != 206) {
+                        throw IOException("Range request returned HTTP ${response.code}")
+                    }
+                    target.outputStream().use { out ->
+                        val buffer = ByteArray(BUFFER_SIZE)
+                        var received = 0L
+                        response.body.byteStream().use { input ->
+                            while (true) {
+                                context.ensureActive()
+                                val read = input.read(buffer)
+                                if (read == -1) break
+                                if (read > 0) {
+                                    out.write(buffer, 0, read)
+                                    received += read
+                                    onDelta(read.toLong())
+                                }
+                            }
+                        }
+                        if (received != expected) {
+                            throw IOException("Range $start-$end stopped at $received of $expected bytes")
+                        }
+                    }
+                }
+                return true
+            } catch (e: RangeNotSupported) {
+                throw e
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                last = e
+                if (attempt < SEGMENT_RETRIES) delay(500L * attempt)
+            }
+        }
+        throw IOException("Could not download bytes $start-$end: ${last?.message}", last)
     }
 
     private fun sequenceIv(sequence: Long): ByteArray {
