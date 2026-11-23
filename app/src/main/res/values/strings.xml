@@ -188,6 +188,12 @@
     <string name="anilist_settings">Anilist Settings</string>
     <string name="extension_settings">Extensions</string>
     <string name="downloads">Downloads</string>
+    <string name="downloaded_media">Downloaded Media</string>
+    <string name="new_download">New Download</string>
+    <string name="no_active_downloads">No downloads in progress</string>
+    <string name="download_queue_hint">Episodes you start downloading will appear here</string>
+    <string name="parallel_downloads">Episodes downloading at once</string>
+    <string name="parallel_downloads_desc">How many episodes of a batch download at the same time (1 = one after another)</string>
     <string name="offline_mode">Offline Mode</string>
     <string name="settings">Settings</string>
     <string name="extensions">Extensions</string>
@@ -1159,4 +1165,21 @@ Non quae tempore quo provident laudantium qui illo dolor vel quia dolor et exerc
     <string name="ai_person_model_missing">Model not downloaded. Go to Add-ons to download it.</string>
     <string name="restart_app">Restart App</string>
     <string name="changes_require_restart">Changes require app restart to take effect</string>
+    <string name="batch_download">Batch Download</string>
+    <string name="download_unwatched_episodes">Download Unwatched Episodes</string>
+    <string name="download_current_section">Download Current Section</string>
+    <string name="download_all_episodes">Download All Episodes</string>
+    <string name="n_episodes">%1$d episodes</string>
+    <string name="provider_all">All</string>
+    <string name="provider_aniyomi">Aniyomi</string>
+    <string name="provider_cloudstream">CloudStream</string>
+    <string name="cloudstream_add_repository">Add Repository to CloudStream</string>
+    <string name="cloudstream_repository_desc">CloudStream repositories are managed separately from Aniyomi repositories.</string>
+    <string name="cloudstream_repository_invalid">Enter a repository URL or owner/repo</string>
+    <string name="cloudstream_repositories">CloudStream repositories</string>
+    <string name="cloudstream_repositories_desc">Manage repositories that provide CloudStream extensions</string>
+    <string name="audio_and_language">Audio &amp; Language</string>
+    <string name="preferred_audio_language">Preferred audio language: %1$s</string>
+    <string name="audio_language_auto">Auto</string>
+    <string name="audio_language_original">Original audio</string>
 </resources>

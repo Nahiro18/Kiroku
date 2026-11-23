@@ -1,6 +1,5 @@
 package eu.kanade.tachiyomi.animesource.model
 
-import eu.kanade.tachiyomi.source.model.UpdateStrategy
 import java.io.Serializable
 
 interface SAnime : Serializable {
@@ -21,7 +20,28 @@ interface SAnime : Serializable {
 
     var thumbnail_url: String?
 
-    var update_strategy: UpdateStrategy
+    /**
+     * Banner/background image of the anime.
+     *
+     * @since extensions-lib 16
+     */
+    var background_url: String?
+
+    var update_strategy: AnimeUpdateStrategy
+
+    /**
+     * Which kind of listing this anime should use.
+     *
+     * @since extensions-lib 16
+     */
+    var fetch_type: FetchType
+
+    /**
+     * Season number of the anime.
+     *
+     * @since extensions-lib 16
+     */
+    var season_number: Double
 
     var initialized: Boolean
 
@@ -51,9 +71,17 @@ interface SAnime : Serializable {
             thumbnail_url = other.thumbnail_url
         }
 
+        if (other.background_url != null) {
+            background_url = other.background_url
+        }
+
         status = other.status
 
         update_strategy = other.update_strategy
+
+        fetch_type = other.fetch_type
+
+        season_number = other.season_number
 
         if (!initialized) {
             initialized = other.initialized
@@ -69,7 +97,10 @@ interface SAnime : Serializable {
         it.genre = genre
         it.status = status
         it.thumbnail_url = thumbnail_url
+        it.background_url = background_url
         it.update_strategy = update_strategy
+        it.fetch_type = fetch_type
+        it.season_number = season_number
         it.initialized = initialized
     }
 

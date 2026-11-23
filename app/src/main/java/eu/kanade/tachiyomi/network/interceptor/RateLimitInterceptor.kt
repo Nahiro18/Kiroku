@@ -8,6 +8,8 @@ import java.io.IOException
 import java.util.ArrayDeque
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * An OkHttp interceptor that handles rate limiting.
@@ -29,17 +31,31 @@ fun OkHttpClient.Builder.rateLimit(
     unit: TimeUnit = TimeUnit.SECONDS,
 ) = addInterceptor(RateLimitInterceptor(null, permits, period, unit))
 
+/**
+ * Rate limiting variant used by extensions built against extension-lib 14+, which pass the
+ * period as a [Duration]. Extensions link against this exact JVM signature, so it must exist
+ * in the app even though the [Long] variant above is kept for older extensions.
+ *
+ * @param permits [Int]     Number of requests allowed within a period of units.
+ * @param period [Duration] The limiting duration. Defaults to 1 second.
+ */
+fun OkHttpClient.Builder.rateLimit(
+    permits: Int,
+    period: Duration = 1.seconds,
+) = addInterceptor(RateLimitInterceptor(null, permits, period.inWholeMilliseconds))
+
 /** We can probably accept domains or wildcards by comparing with [endsWith], etc. */
 @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
 internal class RateLimitInterceptor(
     private val host: String?,
     private val permits: Int,
-    period: Long,
-    unit: TimeUnit,
+    private val rateLimitMillis: Long,
 ) : Interceptor {
 
+    constructor(host: String?, permits: Int, period: Long, unit: TimeUnit) :
+        this(host, permits, unit.toMillis(period))
+
     private val requestQueue = ArrayDeque<Long>(permits)
-    private val rateLimitMillis = unit.toMillis(period)
     private val fairLock = Semaphore(1, true)
 
     override fun intercept(chain: Interceptor.Chain): Response {

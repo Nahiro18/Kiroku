@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.animesource.online
 import eu.kanade.tachiyomi.animesource.AnimeCatalogueSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import eu.kanade.tachiyomi.animesource.model.AnimesPage
+import eu.kanade.tachiyomi.animesource.model.Hoster
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Video
@@ -346,7 +347,12 @@ abstract class AnimeHttpSource : AnimeCatalogueSource {
      *
      * @param response the response from the site.
      */
-    protected abstract fun videoListParse(response: Response): List<Video>
+    /**
+     * Legacy parser for extensions that return the video list straight from the episode page.
+     * Kept open (not abstract) so extensions built against extensions-lib 16, which only
+     * implement the hoster based API, can still be instantiated and loaded.
+     */
+    protected open fun videoListParse(response: Response): List<Video> = emptyList()
 
     /**
      * Sorts the video list. Override this according to the user's preference.
@@ -354,6 +360,85 @@ abstract class AnimeHttpSource : AnimeCatalogueSource {
     protected open fun List<Video>.sort(): List<Video> {
         return this
     }
+
+    /**
+     * Get the list of hosters an episode has.
+     *
+     * @since extensions-lib 16
+     * @param episode the episode.
+     * @return the hosters for the episode.
+     */
+    override suspend fun getHosterList(episode: SEpisode): List<Hoster> {
+        val response = client.newCall(hosterListRequest(episode)).awaitSuccess()
+        return hosterListParse(response).sortHosters()
+    }
+
+    /**
+     * Returns the request for getting the hosters. Override only if it's needed to override
+     * the url, send different headers or request method like POST.
+     *
+     * @since extensions-lib 16
+     */
+    protected open fun hosterListRequest(episode: SEpisode): Request {
+        return GET(baseUrl + episode.url, headers)
+    }
+
+    /**
+     * Parses the response from the site and returns a list of hosters.
+     *
+     * @since extensions-lib 16
+     */
+    protected open fun hosterListParse(response: Response): List<Hoster> = emptyList()
+
+    /**
+     * Sorts the hoster list. Override this according to the user's preference.
+     *
+     * @since extensions-lib 16
+     */
+    open fun List<Hoster>.sortHosters(): List<Hoster> = this
+
+    /**
+     * Get the list of videos a hoster has.
+     *
+     * @since extensions-lib 16
+     * @param hoster the hoster.
+     * @return the videos for the hoster.
+     */
+    override suspend fun getVideoList(hoster: Hoster): List<Video> {
+        hoster.videoList?.let { return it.sortVideos() }
+        val response = client.newCall(videoListRequest(hoster)).awaitSuccess()
+        return videoListParse(response, hoster).sortVideos()
+    }
+
+    /**
+     * Returns the request for getting the videos of a hoster.
+     *
+     * @since extensions-lib 16
+     */
+    protected open fun videoListRequest(hoster: Hoster): Request {
+        return GET(hoster.hosterUrl, headers)
+    }
+
+    /**
+     * Parses the response from the hoster and returns a list of videos.
+     *
+     * @since extensions-lib 16
+     */
+    protected open fun videoListParse(response: Response, hoster: Hoster): List<Video> = emptyList()
+
+    /**
+     * Sorts the video list of a hoster. Override this according to the user's preference.
+     *
+     * @since extensions-lib 16
+     */
+    protected open fun List<Video>.sortVideos(): List<Video> = this
+
+    /**
+     * Get all the available seasons for an anime.
+     *
+     * @since extensions-lib 16
+     */
+    override suspend fun getSeasonList(anime: SAnime): List<SAnime> = emptyList()
 
     /**
      * Returns an observable with the page containing the source url of the image. If there's any

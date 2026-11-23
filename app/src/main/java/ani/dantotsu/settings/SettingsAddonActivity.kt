@@ -121,7 +121,8 @@ class SettingsAddonActivity : AppCompatActivity() {
                                 }
                             }
                         },
-                    ), Settings(
+                    ),
+                    Settings(
                         type = 1,
                         name = getString(R.string.torrent_addon),
                         desc = getString(R.string.not_installed),

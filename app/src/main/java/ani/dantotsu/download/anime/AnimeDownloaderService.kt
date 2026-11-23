@@ -9,7 +9,9 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
@@ -18,20 +20,23 @@ import androidx.core.content.ContextCompat
 import androidx.documentfile.provider.DocumentFile
 import androidx.media3.common.util.UnstableApi
 import ani.dantotsu.FileUrl
-import ani.dantotsu.R
 import ani.dantotsu.addons.download.DownloadAddonManager
+import ani.dantotsu.R
 import ani.dantotsu.connections.crashlytics.CrashlyticsInterface
 import ani.dantotsu.defaultHeaders
+import ani.dantotsu.download.DownloadQueueTracker
 import ani.dantotsu.download.DownloadedType
 import ani.dantotsu.download.DownloadsManager
 import ani.dantotsu.download.DownloadsManager.Companion.getSubDirectory
 import ani.dantotsu.download.anime.AnimeDownloaderService.AnimeDownloadTask.Companion.getTaskName
 import ani.dantotsu.download.findValidName
+import ani.dantotsu.download.video.NativeMediaDownloader
 import ani.dantotsu.media.Media
 import ani.dantotsu.media.MediaType
 import ani.dantotsu.media.anime.AnimeWatchFragment
 import ani.dantotsu.parsers.Video
 import ani.dantotsu.settings.saving.PrefManager
+import ani.dantotsu.settings.saving.PrefName
 import ani.dantotsu.snackString
 import ani.dantotsu.toast
 import ani.dantotsu.util.Logger
@@ -46,10 +51,12 @@ import eu.kanade.tachiyomi.animesource.model.SEpisodeImpl
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SChapterImpl
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -67,12 +74,15 @@ class AnimeDownloaderService : Service() {
     private lateinit var notificationManager: NotificationManagerCompat
     private lateinit var builder: NotificationCompat.Builder
     private val downloadsManager: DownloadsManager = Injekt.get<DownloadsManager>()
+    private val mainHandler = Handler(Looper.getMainLooper())
 
-    private val downloadJobs = mutableMapOf<String, Job>()
-    private val mutex = Mutex()
-    private var isCurrentlyProcessing = false
-    private var currentTasks: MutableList<AnimeDownloadTask> = mutableListOf()
-    private val ffExtension = Injekt.get<DownloadAddonManager>().extension?.extension
+    private val downloadJobs = java.util.concurrent.ConcurrentHashMap<String, Job>()
+    private val mediaInfoMutex = Mutex()
+    private var currentTasks: MutableList<AnimeDownloadTask> =
+        java.util.concurrent.CopyOnWriteArrayList()
+
+    @Volatile
+    private var workerJob: Job? = null
 
     override fun onBind(intent: Intent?): IBinder? {
         // This is only required for bound services.
@@ -81,11 +91,6 @@ class AnimeDownloaderService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        if (ffExtension == null) {
-            toast(getString(R.string.download_addon_not_found))
-            stopSelf()
-            return
-        }
         notificationManager = NotificationManagerCompat.from(this)
         builder =
             NotificationCompat.Builder(this, Notifications.CHANNEL_DOWNLOADER_PROGRESS).apply {
@@ -114,70 +119,88 @@ class AnimeDownloaderService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        AnimeServiceDataSingleton.downloadQueue.clear()
+        // Pending tasks stay in the queue: the service is restarted when it is next needed.
         downloadJobs.clear()
+        workerJob = null
         AnimeServiceDataSingleton.isServiceRunning = false
-        unregisterReceiver(cancelReceiver)
+        try {
+            unregisterReceiver(cancelReceiver)
+        } catch (_: Exception) {
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        snackString("Download started")
-        val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-        serviceScope.launch {
-            mutex.withLock {
-                if (!isCurrentlyProcessing) {
-                    isCurrentlyProcessing = true
-                    processQueue()
-                    isCurrentlyProcessing = false
-                }
-            }
-        }
+        startWorker()
         return START_NOT_STICKY
     }
 
-    private fun processQueue() {
-        CoroutineScope(Dispatchers.Default).launch {
-            while (AnimeServiceDataSingleton.downloadQueue.isNotEmpty()) {
-                val task = AnimeServiceDataSingleton.downloadQueue.poll()
-                if (task != null) {
-                    val job = launch { download(task) }
-                    currentTasks.add(task)
-                    mutex.withLock {
-                        downloadJobs[task.getTaskName()] = job
-                    }
-                    job.join() // Wait for the job to complete before continuing to the next task
-                    mutex.withLock {
-                        downloadJobs.remove(task.getTaskName())
-                    }
-                    updateNotification() // Update the notification after each task is completed
-                }
-                if (AnimeServiceDataSingleton.downloadQueue.isEmpty()) {
-                    withContext(Dispatchers.Main) {
-                        stopSelf() // Stop the service when the queue is empty
-                    }
+    private fun startWorker() {
+        if (workerJob?.isActive == true) return
+        workerJob = CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
+            try {
+                processQueue()
+            } finally {
+                workerJob = null
+                // A task can be queued in the moment between the loop ending and this finally;
+                // pick it up instead of shutting the service down on it.
+                if (AnimeServiceDataSingleton.downloadQueue.isNotEmpty()) {
+                    startWorker()
+                } else {
+                    withContext(Dispatchers.Main) { stopSelf() }
                 }
             }
         }
     }
 
-    @UnstableApi
-    fun cancelDownload(taskName: String) {
-        val sessionIds =
-            AnimeServiceDataSingleton.downloadQueue.filter { it.getTaskName() == taskName }
-                .map { it.sessionId }.toMutableList()
-        sessionIds.addAll(currentTasks.filter { it.getTaskName() == taskName }.map { it.sessionId })
-        sessionIds.forEach {
-            ffExtension!!.cancelDownload(it)
-        }
-        currentTasks.removeAll { it.getTaskName() == taskName }
-        CoroutineScope(Dispatchers.Default).launch {
-            mutex.withLock {
-                downloadJobs[taskName]?.cancel()
-                downloadJobs.remove(taskName)
-                AnimeServiceDataSingleton.downloadQueue.removeAll { it.getTaskName() == taskName }
-                updateNotification() // Update the notification after cancellation
+    private fun parallelDownloads(): Int {
+        return (PrefManager.getVal(PrefName.ParallelDownloads) as? Int ?: 3).coerceIn(1, 6)
+    }
+
+    /**
+     * Runs up to [parallelDownloads] downloads at once; a new episode starts as soon as one slot
+     * frees up instead of after the whole queue is drained one by one.
+     */
+    private suspend fun CoroutineScope.processQueue() {
+        val running = mutableMapOf<String, Job>()
+        while (true) {
+            val maxParallel = parallelDownloads()
+            while (running.size < maxParallel) {
+                val task = AnimeServiceDataSingleton.downloadQueue.poll() ?: break
+                val name = task.getTaskName()
+                currentTasks.add(task)
+                val job = launch {
+                    try {
+                        download(task)
+                    } finally {
+                        currentTasks.removeAll { it.getTaskName() == name }
+                        downloadJobs.remove(name)
+                    }
+                }
+                running[name] = job
+                downloadJobs[name] = job
             }
+            val finished = running.entries.firstOrNull { it.value.isCompleted }
+            if (finished != null) {
+                running.remove(finished.key)
+                updateNotification()
+                continue
+            }
+            if (running.isEmpty() && AnimeServiceDataSingleton.downloadQueue.isEmpty()) break
+            delay(300)
         }
+    }
+
+    fun cancelDownload(taskName: String) {
+        AnimeServiceDataSingleton.downloadQueue.removeAll { it.getTaskName() == taskName }
+        currentTasks.removeAll { it.getTaskName() == taskName }
+        downloadJobs.remove(taskName)?.cancel()
+        DownloadQueueTracker.upsert(
+            taskName.substringBefore("/"),
+            taskName.substringAfter("/"),
+            "Cancelled",
+            0
+        )
+        updateNotification()
     }
 
     private fun updateNotification() {
@@ -188,242 +211,302 @@ class AnimeDownloaderService : Service() {
             "All downloads completed"
         }
         builder.setContentText(text)
-        if (ActivityCompat.checkSelfPermission(
-                this,
-                Manifest.permission.POST_NOTIFICATIONS
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
+        postNotification()
+    }
+
+    private fun canPostNotifications(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
+        return ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.POST_NOTIFICATIONS
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    /** Notification updates happen from IO workers, so always post them on the main thread. */
+    private fun postNotification() {
+        if (!canPostNotifications()) return
+        val notification = try {
+            builder.build()
+        } catch (_: Exception) {
             return
         }
-        notificationManager.notify(NOTIFICATION_ID, builder.build())
+        mainHandler.post {
+            try {
+                notificationManager.notify(NOTIFICATION_ID, notification)
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun mimeFor(extension: String): String = when (extension.lowercase()) {
+        "mkv" -> "video/x-matroska"
+        "ts" -> "video/mp2t"
+        "webm" -> "video/webm"
+        "mov" -> "video/quicktime"
+        else -> "video/mp4"
     }
 
     @androidx.annotation.OptIn(UnstableApi::class)
     suspend fun download(task: AnimeDownloadTask) {
+        val taskName = getTaskName(task.title, task.episode)
         withContext(Dispatchers.IO) {
             try {
-                val notifi = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    ContextCompat.checkSelfPermission(
-                        this@AnimeDownloaderService,
-                        Manifest.permission.POST_NOTIFICATIONS
-                    ) == PackageManager.PERMISSION_GRANTED
-                } else {
-                    true
-                }
-
-                builder.setContentText("Downloading ${getTaskName(task.title, task.episode)}")
-                if (notifi) {
-                    withContext(Dispatchers.Main) {
-                        notificationManager.notify(NOTIFICATION_ID, builder.build())
-                    }
-                }
+                builder.setContentText("Downloading $taskName")
+                DownloadQueueTracker.upsert(task.title, task.episode, "Downloading", 0)
+                postNotification()
 
                 val baseOutputDir = getSubDirectory(
                     this@AnimeDownloaderService,
                     MediaType.ANIME,
                     false,
                     task.title
-                ) ?: throw Exception("Failed to create output directory")
-                val outputDir = getSubDirectory(
-                    this@AnimeDownloaderService,
-                    MediaType.ANIME,
-                    true,
-                    task.title,
-                    task.episode
-                ) ?: throw Exception("Failed to create output directory")
+                ) ?: throw Exception("No downloads folder set. Pick one in Settings first.")
 
-                val extension = ffExtension!!.getFileExtension()
-                outputDir.findFile("${task.getTaskName().findValidName()}.${extension.first}")
-                    ?.delete()
+                val url = task.video.file.url
+                if (url.startsWith("magnet:") || url.endsWith(".torrent", ignoreCase = true)) {
+                    throw Exception("Torrent episodes cannot be downloaded directly")
+                }
 
-                val outputFile =
-                    outputDir.createFile(
-                        extension.second,
-                        "${task.getTaskName()}.${extension.first}"
+                // The Dantotsu download add-on is the preferred engine when it is installed. The
+                // built-in downloader takes over when the add-on is missing, broken, or fails on a
+                // source it cannot handle, so an episode never fails just because of the add-on.
+                val addonDone = downloadWithAddon(task, taskName)
+                if (!addonDone) downloadNatively(task, taskName)
+
+                builder.setContentText("$taskName Download completed")
+                builder.setProgress(0, 0, false)
+                postNotification()
+                snackString("$taskName Download completed")
+
+                PrefManager.getAnimeDownloadPreferences().edit().putString(
+                    task.getTaskName(),
+                    task.video.file.url
+                ).apply()
+                downloadsManager.addDownload(
+                    DownloadedType(
+                        task.title,
+                        task.episode,
+                        MediaType.ANIME,
                     )
-                        ?: throw Exception("Failed to create output file")
-
-                var percent = 0
-                var totalLength = 0.0
-                val path = ffExtension.setDownloadPath(
-                    this@AnimeDownloaderService,
-                    outputFile.uri
                 )
-                if (!task.video.file.headers.containsKey("User-Agent")
-                    && !task.video.file.headers.containsKey("user-agent")
-                ) {
-                    val newHeaders = task.video.file.headers.toMutableMap()
-                    newHeaders["User-Agent"] = defaultHeaders["User-Agent"]!!
-                    task.video.file.headers = newHeaders
-                }
 
-                ffExtension.executeFFProbe(
-                    task.video.file.url,
-                    task.video.file.headers
-                ) {
-                    if (it.toDoubleOrNull() != null) {
-                        totalLength = it.toDouble()
-                    }
-                }
-                val ffTask =
-                    ffExtension.executeFFMpeg(
-                        task.video.file.url,
-                        path,
-                        task.video.file.headers,
-                        task.subtitle,
-                        task.audio,
-                    ) {
-                        // CALLED WHEN SESSION GENERATES STATISTICS
-                        val timeInMilliseconds = it
-                        if (timeInMilliseconds > 0 && totalLength > 0) {
-                            percent = ((it / 1000) / totalLength * 100).toInt()
-                        }
-                        Logger.log("Statistics: $it")
-                    }
-                task.sessionId = ffTask
-                currentTasks.find { it.getTaskName() == task.getTaskName() }?.sessionId =
-                    ffTask
+                currentTasks.removeAll { it.getTaskName() == task.getTaskName() }
+                DownloadQueueTracker.upsert(task.title, task.episode, "Completed", 100)
+                broadcastDownloadFinished(task.episode)
 
                 saveMediaInfo(task, baseOutputDir)
-
-                // periodically check if the download is complete
-                while (ffExtension.getState(ffTask) != "COMPLETED") {
-                    if (ffExtension.getState(ffTask) == "FAILED") {
-                        Logger.log("Download failed")
-                        builder.setContentText(
-                            "${
-                                getTaskName(
-                                    task.title,
-                                    task.episode
-                                )
-                            } Download failed"
-                        )
-                        if (notifi) {
-                            withContext(Dispatchers.Main) {
-                                notificationManager.notify(NOTIFICATION_ID, builder.build())
-                            }
-                        }
-                        toast("${getTaskName(task.title, task.episode)} Download failed")
-                        Logger.log("Download failed: ${ffExtension.getStackTrace(ffTask)}")
-                        downloadsManager.removeDownload(
-                            DownloadedType(
-                                task.title,
-                                task.episode,
-                                MediaType.ANIME,
-                            ),
-                            false
-                        ) {}
-                        Injekt.get<CrashlyticsInterface>().logException(
-                            Exception(
-                                "Anime Download failed:" +
-                                        " ${getTaskName(task.title, task.episode)}" +
-                                        " url: ${task.video.file.url}" +
-                                        " title: ${task.title}" +
-                                        " episode: ${task.episode}"
-                            )
-                        )
-                        currentTasks.removeAll { it.getTaskName() == task.getTaskName() }
-                        broadcastDownloadFailed(task.episode)
-                        break
-                    }
-                    builder.setProgress(
-                        100, percent.coerceAtMost(99),
-                        false
-                    )
-                    broadcastDownloadProgress(
-                        task.episode,
-                        percent.coerceAtMost(99)
-                    )
-                    if (notifi) {
-                        withContext(Dispatchers.Main) {
-                            notificationManager.notify(NOTIFICATION_ID, builder.build())
-                        }
-                    }
-                    kotlinx.coroutines.delay(5000)
-                }
-                if (ffExtension.getState(ffTask) == "COMPLETED") {
-                    if (ffExtension.hadError(ffTask)) {
-                        Logger.log("Download failed")
-                        builder.setContentText(
-                            "${
-                                getTaskName(
-                                    task.title,
-                                    task.episode
-                                )
-                            } Download failed"
-                        )
-                        if (notifi) {
-                            withContext(Dispatchers.Main) {
-                                notificationManager.notify(NOTIFICATION_ID, builder.build())
-                            }
-                        }
-                        snackString("${getTaskName(task.title, task.episode)} Download failed")
-                        downloadsManager.removeDownload(
-                            DownloadedType(
-                                task.title,
-                                task.episode,
-                                MediaType.ANIME
-                            ),
-                            false
-                        ) {}
-                        Injekt.get<CrashlyticsInterface>().logException(
-                            Exception(
-                                "Anime Download failed:" +
-                                        " ${getTaskName(task.title, task.episode)}" +
-                                        " url: ${task.video.file.url}" +
-                                        " title: ${task.title}" +
-                                        " episode: ${task.episode}"
-                            )
-                        )
-                        currentTasks.removeAll { it.getTaskName() == task.getTaskName() }
-                        broadcastDownloadFailed(task.episode)
-                        return@withContext
-                    }
-                    Logger.log("Download completed")
-                    builder.setContentText(
-                        "${
-                            getTaskName(
-                                task.title,
-                                task.episode
-                            )
-                        } Download completed"
-                    )
-                    if (notifi) {
-                        withContext(Dispatchers.Main) {
-                            notificationManager.notify(NOTIFICATION_ID, builder.build())
-                        }
-                    }
-                    snackString("${getTaskName(task.title, task.episode)} Download completed")
-                    PrefManager.getAnimeDownloadPreferences().edit().putString(
-                        task.getTaskName(),
-                        task.video.file.url
-                    ).apply()
-                    downloadsManager.addDownload(
-                        DownloadedType(
-                            task.title,
-                            task.episode,
-                            MediaType.ANIME,
-                        )
-                    )
-
-                    currentTasks.removeAll { it.getTaskName() == task.getTaskName() }
-                    broadcastDownloadFinished(task.episode)
-                } else throw Exception("Download failed")
-
+            } catch (e: CancellationException) {
+                Logger.log("Download cancelled: $taskName")
+                DownloadQueueTracker.removeByTaskName(taskName)
+                throw e
             } catch (e: Exception) {
-                if (e.message?.contains("Coroutine was cancelled") == false) {  //wut
-                    Logger.log("Exception while downloading file: ${e.message}")
-                    snackString("Exception while downloading file: ${e.message}")
-                    e.printStackTrace()
-                    Injekt.get<CrashlyticsInterface>().logException(e)
-                }
+                Logger.log("Exception while downloading file: ${e.message}")
+                snackString("Download failed: ${e.message}")
+                e.printStackTrace()
+                Injekt.get<CrashlyticsInterface>().logException(e)
+                DownloadQueueTracker.upsert(
+                    task.title,
+                    task.episode,
+                    "Failed: ${e.message ?: "unknown error"}",
+                    0
+                )
                 broadcastDownloadFailed(task.episode)
             }
         }
     }
 
+    /** Engine 1: the Dantotsu download add-on (FFmpeg). Returns false when it cannot be used. */
+    private suspend fun downloadWithAddon(
+        task: AnimeDownloadTask,
+        taskName: String
+    ): Boolean = withContext(Dispatchers.IO) {
+        val addon = Injekt.get<DownloadAddonManager>().extension?.extension
+            ?: return@withContext false
+        val fileExtension = try {
+            addon.getFileExtension()
+        } catch (_: Exception) {
+            return@withContext false
+        }
+        val outputDir = getSubDirectory(
+            this@AnimeDownloaderService,
+            MediaType.ANIME,
+            true,
+            task.title,
+            task.episode
+        ) ?: return@withContext false
+
+        val outputName = taskName.findValidName()
+        val fileName = "$outputName.${fileExtension.first}"
+        outputDir.findFile(fileName)?.delete()
+        val file = outputDir.createFile(fileExtension.second, fileName)
+            ?: return@withContext false
+
+        var session = -1L
+        try {
+            val headers = task.video.file.headers.toMutableMap()
+            if (headers.keys.none { it.equals("User-Agent", ignoreCase = true) }) {
+                headers["User-Agent"] = defaultHeaders["User-Agent"] ?: ""
+            }
+
+            var durationSeconds = 0.0
+            try {
+                addon.executeFFProbe(task.video.file.url, headers) { value ->
+                    value.toDoubleOrNull()?.let { if (it > 0) durationSeconds = it }
+                }
+            } catch (_: Exception) {
+            }
+
+            val path = addon.setDownloadPath(this@AnimeDownloaderService, file.uri)
+            var lastPercent = -1
+            session = addon.executeFFMpeg(
+                task.video.file.url,
+                path,
+                headers,
+                task.subtitle,
+                task.audio
+            ) { milliseconds ->
+                if (milliseconds > 0 && durationSeconds > 0) {
+                    val shown = ((milliseconds / 1000.0) / durationSeconds * 100).toInt()
+                        .coerceIn(0, 99)
+                    if (shown != lastPercent) {
+                        lastPercent = shown
+                        DownloadQueueTracker.upsert(
+                            task.title,
+                            task.episode,
+                            "Downloading",
+                            shown
+                        )
+                        broadcastDownloadProgress(task.episode, shown)
+                    }
+                }
+            }
+
+            while (true) {
+                when (addon.getState(session)) {
+                    "COMPLETED" -> break
+                    "FAILED" -> throw Exception(
+                        addon.getStackTrace(session)?.lineSequence()?.firstOrNull()
+                            ?: "add-on reported a failure"
+                    )
+
+                    else -> delay(700)
+                }
+            }
+            if (addon.hadError(session)) throw Exception("add-on finished with an error")
+            if (file.length() <= 0L) throw Exception("add-on produced an empty file")
+
+            Logger.log("Downloaded $taskName with the Dantotsu add-on (${file.length()} bytes)")
+            true
+        } catch (e: CancellationException) {
+            try {
+                if (session > 0) addon.cancelDownload(session)
+            } catch (_: Exception) {
+            }
+            try {
+                file.delete()
+            } catch (_: Exception) {
+            }
+            throw e
+        } catch (e: Exception) {
+            Logger.log("Add-on failed for $taskName, using the built-in downloader: ${e.message}")
+            try {
+                if (session > 0) addon.cancelDownload(session)
+            } catch (_: Exception) {
+            }
+            try {
+                file.delete()
+            } catch (_: Exception) {
+            }
+            false
+        }
+    }
+
+    /** Engine 2: the built-in multi-threaded HTTP/HLS downloader. */
+    private suspend fun downloadNatively(
+        task: AnimeDownloadTask,
+        taskName: String
+    ): Unit = withContext(Dispatchers.IO) {
+        var createdFile: DocumentFile? = null
+        try {
+            val outputDir = getSubDirectory(
+                this@AnimeDownloaderService,
+                MediaType.ANIME,
+                true,
+                task.title,
+                task.episode
+            ) ?: throw Exception("No downloads folder set. Pick one in Settings first.")
+
+            val headers = task.video.file.headers.toMutableMap()
+            if (headers.keys.none { it.equals("User-Agent", ignoreCase = true) }) {
+                headers["User-Agent"] = defaultHeaders["User-Agent"] ?: ""
+            }
+
+            val predicted = NativeMediaDownloader.predictExtension(
+                task.video.file.url,
+                task.video.format
+            )
+            val outputName = taskName.findValidName()
+            outputDir.findFile("$outputName.$predicted")?.delete()
+            var file = outputDir.createFile(mimeFor(predicted), "$outputName.$predicted")
+                ?: throw Exception("Failed to create the episode file")
+            createdFile = file
+
+            var lastNotified = 0L
+            val result = file.openOutputStream(this@AnimeDownloaderService, false)?.use { stream ->
+                NativeMediaDownloader.download(
+                    url = task.video.file.url,
+                    headers = headers,
+                    videoType = task.video.format,
+                    output = stream,
+                    tempDir = cacheDir
+                ) { percent, _, _ ->
+                    val shown = percent.coerceIn(0, 99)
+                    DownloadQueueTracker.upsert(
+                        task.title,
+                        task.episode,
+                        "Downloading",
+                        shown
+                    )
+                    broadcastDownloadProgress(task.episode, shown)
+                    val now = System.currentTimeMillis()
+                    if (now - lastNotified > 2000) {
+                        lastNotified = now
+                        builder.setProgress(100, shown, false)
+                        postNotification()
+                    }
+                }
+            } ?: throw Exception("Could not open the episode file for writing")
+
+            if (result.extension != predicted) {
+                // The server answered with another container than the link suggested.
+                if (file.renameTo("$outputName.${result.extension}")) {
+                    file = outputDir.findFile("$outputName.${result.extension}") ?: file
+                    createdFile = file
+                }
+            }
+
+            Logger.log("Downloaded $taskName (${result.bytes} bytes)")
+        } catch (e: Exception) {
+            try {
+                createdFile?.delete()
+            } catch (_: Exception) {
+            }
+            throw e
+        }
+    }
+
     private fun saveMediaInfo(task: AnimeDownloadTask, directory: DocumentFile) {
         CoroutineScope(Dispatchers.IO).launch {
+            // Several episodes of the same anime can finish at once; they all rewrite the same
+            // media.json, so serialise it or they delete each other's file mid-write.
+            mediaInfoMutex.withLock {
+                writeMediaInfo(task, directory)
+            }
+        }
+    }
+
+    private suspend fun writeMediaInfo(task: AnimeDownloadTask, directory: DocumentFile) {
+        withContext(Dispatchers.IO) {
             directory.findFile("media.json")?.forceDelete(this@AnimeDownloaderService)
             val file = directory.createFile("application/json", "media.json")
                 ?: throw Exception("File not created")
@@ -554,7 +637,6 @@ class AnimeDownloaderService : Service() {
     }
 
     private val cancelReceiver = object : BroadcastReceiver() {
-        @androidx.annotation.OptIn(UnstableApi::class)
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == ACTION_CANCEL_DOWNLOAD) {
                 val taskName = intent.getStringExtra(EXTRA_TASK_NAME)

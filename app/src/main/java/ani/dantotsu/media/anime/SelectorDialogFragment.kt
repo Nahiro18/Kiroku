@@ -26,7 +26,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import ani.dantotsu.BottomSheetDialogFragment
 import ani.dantotsu.R
-import ani.dantotsu.addons.download.DownloadAddonManager
 import ani.dantotsu.addons.torrent.TorrentAddonManager
 import ani.dantotsu.connections.crashlytics.CrashlyticsInterface
 import ani.dantotsu.copyToClipboard
@@ -43,8 +42,8 @@ import ani.dantotsu.media.Media
 import ani.dantotsu.media.MediaDetailsViewModel
 import ani.dantotsu.media.MediaType
 import ani.dantotsu.media.SubtitleDownloader
+import ani.dantotsu.download.anime.BatchDownloader
 import ani.dantotsu.navBarHeight
-import ani.dantotsu.others.Download.download
 import ani.dantotsu.parsers.Subtitle
 import ani.dantotsu.parsers.Video
 import ani.dantotsu.parsers.VideoExtractor
@@ -83,8 +82,10 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
     private var selected: String? = null
     private var launch: Boolean? = null
     private var isDownloadMenu: Boolean? = null
-    // Called once a download is confirmed so a caller can advance to the next episode in a batch.
-    var onBatchEpisodeDownloaded: ((String) -> Unit)? = null
+
+    // When set, picking a server/quality downloads every one of these episodes with it instead
+    // of only the episode currently open.
+    private var batchEpisodes: Array<String>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -93,6 +94,7 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
             launch = it.getBoolean("launch", true)
             prevEpisode = it.getString("prev")
             isDownloadMenu = it.getBoolean("isDownload")
+            batchEpisodes = it.getStringArray("batchEpisodes")
         }
     }
 
@@ -518,47 +520,25 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
                     extractor.server.name
                 media!!.anime!!.episodes!![media!!.anime!!.selectedEpisode!!]!!.selectedVideo =
                     position
-                if ((PrefManager.getVal(PrefName.DownloadManager) as Int) != 0) {
-                    download(
-                        requireActivity(),
-                        media!!.anime!!.episodes!![media!!.anime!!.selectedEpisode!!]!!,
-                        media!!.userPreferredName
-                    )
-                    val onConfirmed = onBatchEpisodeDownloaded
-                    if (onConfirmed != null) {
-                        val epNum =
-                            media!!.anime!!.episodes!![media!!.anime!!.selectedEpisode!!]!!.number
-                        // Advance to the next episode's selector after this sheet has closed.
-                        // Use the Activity's looper (survives the view being destroyed by dismiss)
-                        // rather than the sheet's view.
-                        Handler(Looper.getMainLooper()).postDelayed({
-                            Logger.log("BATCH: advancing to next after episode $epNum")
-                            onConfirmed(epNum)
-                        }, 400)
-                    }
+                val batch = batchEpisodes
+                if (!batch.isNullOrEmpty()) {
+                    // Batch: one server choice for the whole selection, resolved in the background.
+                    val currentMedia = media!!
+                    val activity = currActivity() ?: requireActivity()
+                    val episodes = batch.toList()
                     dismiss()
-                } else {
-                    val downloadAddonManager: DownloadAddonManager = Injekt.get()
-                    if (!downloadAddonManager.isAvailable()) {
-                        val context = currContext() ?: requireContext()
-                        context.customAlertDialog().apply {
-                            setTitle(R.string.download_addon_not_installed)
-                            setMessage(R.string.would_you_like_to_install)
-                            setPosButton(R.string.yes) {
-                                ContextCompat.startActivity(
-                                    context,
-                                    Intent(context, SettingsAddonActivity::class.java),
-                                    null
-                                )
-                            }
-                            setNegButton(R.string.no) {
-                                return@setNegButton
-                            }
-                            show()
+                    BatchDownloader.start(
+                        activity, model, currentMedia, episodes, extractor.server.name, position,
+                        onFinished = { started, skipped ->
+                            snackString(
+                                if (skipped > 0) "Queued $started episodes ($skipped skipped)"
+                                else "Queued $started episodes"
+                            )
                         }
-                        dismiss()
-                        return@setSafeOnClickListener
-                    }
+                    )
+                    return@setSafeOnClickListener
+                }
+                run {
                     val episode =
                         media!!.anime!!.episodes!![media!!.anime!!.selectedEpisode!!]!!
                     val selectedVideo =
@@ -768,7 +748,8 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
             server: String? = null,
             la: Boolean = true,
             prev: String? = null,
-            isDownload: Boolean
+            isDownload: Boolean,
+            batchEpisodes: Array<String>? = null
         ): SelectorDialogFragment =
             SelectorDialogFragment().apply {
                 arguments = Bundle().apply {
@@ -776,6 +757,7 @@ class SelectorDialogFragment : BottomSheetDialogFragment() {
                     putBoolean("launch", la)
                     putString("prev", prev)
                     putBoolean("isDownload", isDownload)
+                    putStringArray("batchEpisodes", batchEpisodes)
                 }
             }
     }

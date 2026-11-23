@@ -13,7 +13,7 @@ enum class PrefName(val data: Pref) {
     //General
     SharedUserID(Pref(Location.General, Boolean::class, true)),
     OfflineView(Pref(Location.General, Int::class, 0)),
-    DownloadManager(Pref(Location.General, Int::class, 0)),
+    ParallelDownloads(Pref(Location.General, Int::class, 3)),
     NSFWExtension(Pref(Location.General, Boolean::class, true)),
     ContinueMedia(Pref(Location.General, Boolean::class, true)),
     SearchSources(Pref(Location.General, Boolean::class, false)),
@@ -31,10 +31,18 @@ enum class PrefName(val data: Pref) {
             "Mozilla/5.0 (Linux; Android 13; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36"
         )
     ),
-    AnimeExtensionRepos(Pref(Location.General, Set::class, setOf<String>())),
+    AnimeExtensionRepos(
+        Pref(
+            Location.General,
+            Set::class,
+            setOf("https://raw.githubusercontent.com/salmanbappi/extensions-repo/main/index.min.json")
+        )
+    ),
     MangaExtensionRepos(Pref(Location.General, Set::class, setOf<String>())),
     NovelExtensionRepos(Pref(Location.General, Set::class, setOf<String>())),
+    CloudStreamExtensionRepos(Pref(Location.General, Set::class, setOf<String>())),
     AnimeSourcesOrder(Pref(Location.General, List::class, listOf<String>())),
+    CloudStreamSourcesOrder(Pref(Location.General, List::class, listOf<String>())),
     MangaSourcesOrder(Pref(Location.General, List::class, listOf<String>())),
     SortedAnimeSH(Pref(Location.General, List::class, listOf<SearchHistory>())),
     SortedMangaSH(Pref(Location.General, List::class, listOf<SearchHistory>())),
@@ -103,6 +111,7 @@ enum class PrefName(val data: Pref) {
     Subtitles(Pref(Location.Player, Boolean::class, true)),
     TextviewSubtitles(Pref(Location.Player, Boolean::class, false)),
     SubLanguage(Pref(Location.Player, Int::class, 9)),
+    PreferredAudioLanguage(Pref(Location.Player, String::class, "auto")),
     PrimaryColor(Pref(Location.Player, Int::class, Color.WHITE)),
     SecondaryColor(Pref(Location.Player, Int::class, Color.BLACK)),
     Outline(Pref(Location.Player, Int::class, 0)),

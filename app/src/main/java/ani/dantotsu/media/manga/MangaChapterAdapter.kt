@@ -1,10 +1,12 @@
 package ani.dantotsu.media.manga
 
+import android.annotation.SuppressLint
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.LinearInterpolator
 import android.widget.NumberPicker
+import androidx.core.view.isVisible
 import androidx.lifecycle.coroutineScope
 import androidx.recyclerview.widget.RecyclerView
 import ani.dantotsu.R
@@ -61,14 +63,79 @@ class MangaChapterAdapter(
         RecyclerView.ViewHolder(binding.root) {
         init {
             itemView.setOnClickListener {
-                if (0 <= bindingAdapterPosition && bindingAdapterPosition < arr.size)
-                    fragment.onMangaChapterClick(arr[bindingAdapterPosition])
+                if (0 <= bindingAdapterPosition && bindingAdapterPosition < arr.size) {
+                    val chapter = arr[bindingAdapterPosition]
+                    if (batchMode) toggleBatchSelection(chapter)
+                    else fragment.onMangaChapterClick(chapter)
+                }
+            }
+            itemView.setOnLongClickListener {
+                if (0 <= bindingAdapterPosition && bindingAdapterPosition < arr.size && !batchMode) {
+                    itemView.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                    enterBatchMode(arr[bindingAdapterPosition])
+                    true
+                } else false
             }
         }
     }
 
     private val activeDownloads = mutableSetOf<String>()
     private val downloadedChapters = mutableSetOf<String>()
+
+    var batchMode = false
+        private set
+    val selectedForBatch = mutableSetOf<String>()
+    var onBatchSelectionChanged: ((Int) -> Unit)? = null
+
+    fun toggleBatchSelection(chapter: MangaChapter) {
+        val key = chapter.uniqueNumber()
+        if (!selectedForBatch.remove(key)) selectedForBatch.add(key)
+        notifyChapter(key)
+        onBatchSelectionChanged?.invoke(selectedForBatch.size)
+    }
+
+    @SuppressLint("NotifyDataSetChanged")
+    fun enterBatchMode(chapter: MangaChapter) {
+        batchMode = true
+        selectedForBatch.clear()
+        selectedForBatch.add(chapter.uniqueNumber())
+        notifyDataSetChanged()
+        onBatchSelectionChanged?.invoke(selectedForBatch.size)
+    }
+
+    @SuppressLint("NotifyDataSetChanged")
+    fun exitBatchMode() {
+        batchMode = false
+        selectedForBatch.clear()
+        notifyDataSetChanged()
+        onBatchSelectionChanged?.invoke(0)
+    }
+
+    @SuppressLint("NotifyDataSetChanged")
+    fun selectAllBatch() {
+        selectedForBatch.clear()
+        selectedForBatch.addAll(
+            arr.filterNot {
+                activeDownloads.contains(it.uniqueNumber()) ||
+                        downloadedChapters.contains(it.uniqueNumber())
+            }.map { it.uniqueNumber() }
+        )
+        notifyDataSetChanged()
+        onBatchSelectionChanged?.invoke(selectedForBatch.size)
+    }
+
+    /** Chapters currently selected and still downloadable, in list order. */
+    fun selectedChapters(): List<MangaChapter> = arr.filter {
+        val key = it.uniqueNumber()
+        selectedForBatch.contains(key) &&
+                !activeDownloads.contains(key) &&
+                !downloadedChapters.contains(key)
+    }
+
+    private fun notifyChapter(key: String) {
+        val position = arr.indexOfFirst { it.uniqueNumber() == key }
+        if (position != -1) notifyItemChanged(position)
+    }
 
     fun startDownload(chapterNumber: String) {
         activeDownloads.add(chapterNumber)
@@ -118,6 +185,25 @@ class MangaChapterAdapter(
             arr[position].progress = "Downloading: ${progress}%"
 
             notifyItemChanged(position)
+        }
+    }
+
+    private fun showNextNDownloadDialog(position: Int) {
+        val context = currContext() ?: return
+        val max = (arr.size - position).coerceAtLeast(1)
+        context.customAlertDialog().apply {
+            setTitle("Multi Chapter Downloader")
+            setMessage("Enter the number of chapters to download")
+            val input = NumberPicker(context)
+            input.minValue = 1
+            input.maxValue = max
+            input.value = 1
+            setCustomView(input)
+            setPosButton("OK") {
+                downloadNChaptersFrom(position, input.value)
+            }
+            setNegButton("Cancel")
+            show()
         }
     }
 
@@ -200,8 +286,11 @@ class MangaChapterAdapter(
 
         init {
             itemView.setOnClickListener {
-                if (0 <= bindingAdapterPosition && bindingAdapterPosition < arr.size)
-                    fragment.onMangaChapterClick(arr[bindingAdapterPosition])
+                if (0 <= bindingAdapterPosition && bindingAdapterPosition < arr.size) {
+                    val chapter = arr[bindingAdapterPosition]
+                    if (batchMode) toggleBatchSelection(chapter)
+                    else fragment.onMangaChapterClick(chapter)
+                }
             }
             binding.itemDownload.setOnClickListener {
                 if (0 <= bindingAdapterPosition && bindingAdapterPosition < arr.size) {
@@ -228,20 +317,16 @@ class MangaChapterAdapter(
                 }
             }
             binding.itemDownload.setOnLongClickListener {
-                //Alert dialog asking for the number of chapters to download
-                it.context.customAlertDialog().apply {
-                    setTitle("Multi Chapter Downloader")
-                    setMessage("Enter the number of chapters to download")
-                    val input = NumberPicker(currContext())
-                    input.minValue = 1
-                    input.maxValue = itemCount - bindingAdapterPosition
-                    input.value = 1
-                    setCustomView(input)
-                    setPosButton("OK") {
-                        downloadNChaptersFrom(bindingAdapterPosition, input.value)
+                if (0 <= bindingAdapterPosition && bindingAdapterPosition < arr.size) {
+                    val position = bindingAdapterPosition
+                    it.context.customAlertDialog().apply {
+                        setTitle("Batch Download")
+                        setMessage("Choose chapters to download, or download the next few in a row")
+                        setPosButton("Select chapters") { enterBatchMode(arr[position]) }
+                        setNeutralButton("Next N chapters…") { showNextNDownloadDialog(position) }
+                        setNegButton("Cancel")
+                        show()
                     }
-                    setNegButton("Cancel")
-                    show()
                 }
                 true
             }
@@ -257,6 +342,9 @@ class MangaChapterAdapter(
                 val ep = arr[position]
                 val parsedNumber = MediaNameAdapter.findChapterNumber(ep.number)?.toInt()
                 binding.itemEpisodeNumber.text = parsedNumber?.toString() ?: ep.number
+                binding.itemBatchCheck.isVisible = batchMode
+                binding.itemBatchCheck.isChecked = selectedForBatch.contains(ep.uniqueNumber())
+                binding.itemBatchCheck.setOnClickListener { toggleBatchSelection(ep) }
                 if (media.userProgress != null) {
                     if ((MediaNameAdapter.findChapterNumber(ep.number)
                             ?: 9999f) <= media.userProgress!!.toFloat()
@@ -281,6 +369,9 @@ class MangaChapterAdapter(
                 holder.bind(ep.uniqueNumber(), ep.progress)
                 setAnimation(fragment.requireContext(), holder.binding.root)
                 binding.itemChapterNumber.text = ep.number
+                binding.itemBatchCheck.isVisible = batchMode
+                binding.itemBatchCheck.isChecked = selectedForBatch.contains(ep.uniqueNumber())
+                binding.itemBatchCheck.setOnClickListener { toggleBatchSelection(ep) }
 
                 if (ep.date != null) {
                     binding.itemChapterDateLayout.visibility = View.VISIBLE

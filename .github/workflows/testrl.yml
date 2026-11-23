@@ -1,0 +1,81 @@
+name: Test Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. test-v1.1.99)'
+        required: true
+        default: 'test-v1.1.99'
+      draft:
+        description: 'Create as draft release'
+        required: false
+        type: boolean
+        default: false
+  push:
+    tags:
+      - 'v*.*.*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    env:
+      CI: true
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: 17
+          cache: gradle
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Build release APK
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/keystore.jks"
+            export KEYSTORE_PATH="$RUNNER_TEMP/keystore.jks"
+            echo "Building with release keystore"
+          else
+            echo "No keystore secret found, building debug-signed release APKs"
+          fi
+          ./gradlew assembleGoogleRelease --no-daemon
+          ls -lh app/build/outputs/apk/google/release/
+
+      - name: Upload built APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-release-apks
+          path: app/build/outputs/apk/google/release/*.apk
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          name: ${{ inputs.tag || github.ref_name }}
+          draft: ${{ inputs.draft || false }}
+          generate_release_notes: true
+          files: app/build/outputs/apk/google/release/*.apk

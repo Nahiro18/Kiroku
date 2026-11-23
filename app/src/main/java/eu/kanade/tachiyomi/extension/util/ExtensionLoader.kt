@@ -62,7 +62,7 @@ internal object ExtensionLoader {
     private const val XX_METADATA_HAS_README = ".hasReadme"
     private const val XX_METADATA_HAS_CHANGELOG = ".hasChangelog"
     const val ANIME_LIB_VERSION_MIN = 12
-    const val ANIME_LIB_VERSION_MAX = 15
+    const val ANIME_LIB_VERSION_MAX = 16
 
     const val MANGA_LIB_VERSION_MIN = 1.2
     const val MANGA_LIB_VERSION_MAX = 1.6
@@ -216,6 +216,12 @@ internal object ExtensionLoader {
             return AnimeLoadResult.Error
         }
 
+        // A malformed extension must not crash the whole extension list.
+        val metaData = appInfo.metaData ?: run {
+            Logger.log("Missing metadata for extension $pkgName")
+            return AnimeLoadResult.Error
+        }
+
         val extName = pkgManager.getApplicationLabel(appInfo).toString().substringAfter("Aniyomi: ")
         val versionName = pkgInfo.versionName
         val versionCode = PackageInfoCompat.getLongVersionCode(pkgInfo)
@@ -235,15 +241,15 @@ internal object ExtensionLoader {
             return AnimeLoadResult.Error
         }
 
-        val isNsfw = appInfo.metaData.getInt("$ANIME_PACKAGE$XX_METADATA_NSFW") == 1
+        val isNsfw = metaData.getInt("$ANIME_PACKAGE$XX_METADATA_NSFW") == 1
         if (!loadNsfwSource && isNsfw) {
             Logger.log("NSFW extension $pkgName not allowed")
             return AnimeLoadResult.Error
         }
 
-        val hasReadme = appInfo.metaData.getInt("$ANIME_PACKAGE$XX_METADATA_HAS_README", 0) == 1
+        val hasReadme = metaData.getInt("$ANIME_PACKAGE$XX_METADATA_HAS_README", 0) == 1
         val hasChangelog =
-            appInfo.metaData.getInt("$ANIME_PACKAGE$XX_METADATA_HAS_CHANGELOG", 0) == 1
+            metaData.getInt("$ANIME_PACKAGE$XX_METADATA_HAS_CHANGELOG", 0) == 1
 
         val classLoader = try{
             PathClassLoader(appInfo.sourceDir, null, context.classLoader)
@@ -253,7 +259,13 @@ internal object ExtensionLoader {
             return AnimeLoadResult.Error
         }
 
-        val sources = appInfo.metaData.getString("$ANIME_PACKAGE$XX_METADATA_SOURCE_CLASS")!!
+        val sourceClasses = metaData.getString("$ANIME_PACKAGE$XX_METADATA_SOURCE_CLASS")
+        if (sourceClasses.isNullOrBlank()) {
+            Logger.log("Missing source class metadata for extension $extName")
+            return AnimeLoadResult.Error
+        }
+
+        val sources = sourceClasses
             .split(";")
             .map {
                 val sourceClass = it.trim()
@@ -297,7 +309,7 @@ internal object ExtensionLoader {
             hasReadme = hasReadme,
             hasChangelog = hasChangelog,
             sources = sources,
-            pkgFactory = appInfo.metaData.getString("$ANIME_PACKAGE$XX_METADATA_SOURCE_FACTORY"),
+            pkgFactory = metaData.getString("$ANIME_PACKAGE$XX_METADATA_SOURCE_FACTORY"),
             isUnofficial = true,
             icon = context.getApplicationIcon(pkgName),
         )
@@ -316,6 +328,12 @@ internal object ExtensionLoader {
         } catch (error: PackageManager.NameNotFoundException) {
             // Unlikely, but the package may have been uninstalled at this point
             Logger.log(error)
+            return MangaLoadResult.Error
+        }
+
+        // A malformed extension must not crash the whole extension list.
+        val metaData = appInfo.metaData ?: run {
+            Logger.log("Missing metadata for extension $pkgName")
             return MangaLoadResult.Error
         }
 
@@ -339,15 +357,15 @@ internal object ExtensionLoader {
             return MangaLoadResult.Error
         }
 
-        val isNsfw = appInfo.metaData.getInt("$MANGA_PACKAGE$XX_METADATA_NSFW") == 1
+        val isNsfw = metaData.getInt("$MANGA_PACKAGE$XX_METADATA_NSFW") == 1
         if (!loadNsfwSource && isNsfw) {
             Logger.log("NSFW extension $pkgName not allowed")
             return MangaLoadResult.Error
         }
 
-        val hasReadme = appInfo.metaData.getInt("$MANGA_PACKAGE$XX_METADATA_HAS_README", 0) == 1
+        val hasReadme = metaData.getInt("$MANGA_PACKAGE$XX_METADATA_HAS_README", 0) == 1
         val hasChangelog =
-            appInfo.metaData.getInt("$MANGA_PACKAGE$XX_METADATA_HAS_CHANGELOG", 0) == 1
+            metaData.getInt("$MANGA_PACKAGE$XX_METADATA_HAS_CHANGELOG", 0) == 1
 
         val classLoader = try{
             PathClassLoader(appInfo.sourceDir, null, context.classLoader)
@@ -357,7 +375,13 @@ internal object ExtensionLoader {
             return MangaLoadResult.Error
         }
 
-        val sources = appInfo.metaData.getString("$MANGA_PACKAGE$XX_METADATA_SOURCE_CLASS")!!
+        val sourceClasses = metaData.getString("$MANGA_PACKAGE$XX_METADATA_SOURCE_CLASS")
+        if (sourceClasses.isNullOrBlank()) {
+            Logger.log("Missing source class metadata for extension $extName")
+            return MangaLoadResult.Error
+        }
+
+        val sources = sourceClasses
             .split(";")
             .map {
                 val sourceClass = it.trim()
@@ -401,7 +425,7 @@ internal object ExtensionLoader {
             hasReadme = hasReadme,
             hasChangelog = hasChangelog,
             sources = sources,
-            pkgFactory = appInfo.metaData.getString("$MANGA_PACKAGE$XX_METADATA_SOURCE_FACTORY"),
+            pkgFactory = metaData.getString("$MANGA_PACKAGE$XX_METADATA_SOURCE_FACTORY"),
             isUnofficial = true,
             icon = context.getApplicationIcon(pkgName),
         )
@@ -443,7 +467,7 @@ internal object ExtensionLoader {
             instance as? NovelInterface
         } catch (e: Throwable) {
             Logger.log("Extension load error: $extName")
-            return NovelLoadResult.Error(e as Exception)
+            return NovelLoadResult.Error(e as? Exception ?: Exception(e))
         }
 
         val extension = NovelExtension.Installed(

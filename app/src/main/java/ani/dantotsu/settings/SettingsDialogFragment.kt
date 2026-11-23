@@ -13,6 +13,7 @@ import ani.dantotsu.MainActivity
 import ani.dantotsu.R
 import ani.dantotsu.connections.anilist.Anilist
 import ani.dantotsu.databinding.BottomSheetSettingsBinding
+import ani.dantotsu.download.DownloadsActivity
 import ani.dantotsu.download.anime.OfflineAnimeFragment
 import ani.dantotsu.download.manga.OfflineMangaFragment
 import ani.dantotsu.getThemeColor
@@ -143,6 +144,11 @@ class SettingsDialogFragment : BottomSheetDialogFragment() {
 
         binding.settingsSettings.setSafeOnClickListener {
             startActivity(Intent(activity, SettingsActivity::class.java))
+            dismiss()
+        }
+
+        binding.settingsDownloadsPage.setSafeOnClickListener {
+            startActivity(Intent(activity, DownloadsActivity::class.java))
             dismiss()
         }
 

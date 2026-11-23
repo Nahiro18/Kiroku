@@ -215,6 +215,9 @@
             android:label="Inbox Activity"
             android:parentActivityName=".MainActivity" />
         <activity
+            android:name=".download.DownloadsActivity"
+            android:parentActivityName=".MainActivity" />
+        <activity
             android:name=".others.imagesearch.ImageSearchActivity"
             android:parentActivityName=".MainActivity" />
         <activity

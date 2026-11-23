@@ -10,6 +10,9 @@ import ani.dantotsu.addons.download.DownloadAddonManager
 import ani.dantotsu.addons.torrent.TorrentAddonManager
 import ani.dantotsu.aniyomi.anime.custom.AppModule
 import ani.dantotsu.aniyomi.anime.custom.PreferenceModule
+import ani.dantotsu.cloudstream.CloudStreamExtensionManager
+import ani.dantotsu.cloudstream.CloudStreamRepositoryManager
+import ani.dantotsu.cloudstream.CloudStreamRuntime
 import ani.dantotsu.connections.comments.CommentsAPI
 import ani.dantotsu.connections.crashlytics.CrashlyticsInterface
 import ani.dantotsu.notifications.TaskScheduler
@@ -115,6 +118,14 @@ class App : Application() {
             AnimeSources.init(animeExtensionManager.installedExtensionsFlow)
         }
         applicationScope.launch {
+            // CloudStream plugins are loaded from private storage, independently of the
+            // Aniyomi extension APKs. Reloading them refreshes the shared source list.
+            CloudStreamExtensionManager.initialize()
+            CloudStreamRuntime.onProvidersChanged = { AnimeSources.refresh() }
+            CloudStreamRuntime.reload()
+            CloudStreamRepositoryManager.refresh()
+        }
+        applicationScope.launch {
             mangaExtensionManager = Injekt.get()
             mangaExtensionManager.findAvailableExtensions()
             Logger.log("Manga Extensions: ${mangaExtensionManager.installedExtensionsFlow.first().map { it.name }}")
@@ -150,8 +161,8 @@ class App : Application() {
                 Logger.log(e)
             }
         }
-        // Initialize addon managers so installed download/torrent addons are detected
-        // and their install/update/uninstall listeners are registered at startup.
+        // Initialize the addon managers so installed download/torrent addons are detected and their
+        // install/update/uninstall listeners are registered at startup.
         applicationScope.launch {
             kotlinx.coroutines.delay(3000)
             downloadAddonManager = Injekt.get()

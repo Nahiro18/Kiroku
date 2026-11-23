@@ -11,6 +11,7 @@ import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.recyclerview.widget.LinearLayoutManager
 import ani.dantotsu.R
+import ani.dantotsu.cloudstream.CloudStreamRepositoryManager
 import ani.dantotsu.copyToClipboard
 import ani.dantotsu.databinding.ActivitySettingsExtensionsBinding
 import ani.dantotsu.databinding.DialogUserAgentBinding
@@ -48,6 +49,23 @@ class SettingsExtensionsActivity : AppCompatActivity() {
             extensionSettingsBack.setOnClickListener {
                 onBackPressedDispatcher.onBackPressed()
             }
+            fun setCloudStreamRepositories(repoInventory: ViewGroup) {
+                repoInventory.removeAllViews()
+                CloudStreamRepositoryManager.repositories.forEach { item ->
+                    val view = ItemRepositoryBinding.inflate(
+                        LayoutInflater.from(repoInventory.context), repoInventory, true
+                    )
+                    view.repositoryItem.text = item
+                        .removePrefix("https://raw.githubusercontent.com/")
+                    view.repositoryItem.setOnLongClickListener {
+                        it.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                        copyToClipboard(item, true)
+                        true
+                    }
+                }
+                repoInventory.isVisible = repoInventory.childCount > 0
+            }
+
             fun setExtensionOutput(repoInventory: ViewGroup, type: MediaType) {
                 repoInventory.removeAllViews()
                 val prefName: PrefName = when (type) {
@@ -154,6 +172,19 @@ class SettingsExtensionsActivity : AppCompatActivity() {
                         },
                         attach = {
                             setExtensionOutput(it.attachView, MediaType.NOVEL)
+                        }
+                    ),
+                    Settings(
+                        type = 1,
+                        name = getString(R.string.cloudstream_repositories),
+                        desc = getString(R.string.cloudstream_repositories_desc),
+                        icon = R.drawable.ic_extension,
+                        onClick = {
+                            CloudStreamRepositoryBottomSheet()
+                                .show(supportFragmentManager, "cloudstream_repo")
+                        },
+                        attach = {
+                            setCloudStreamRepositories(it.attachView)
                         }
                     ),
                     Settings(

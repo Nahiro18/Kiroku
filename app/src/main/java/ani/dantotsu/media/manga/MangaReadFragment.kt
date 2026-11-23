@@ -204,6 +204,8 @@ open class MangaReadFragment : Fragment(), ScanlatorSelectionListener {
                         binding.mediaSourceRecycler.adapter =
                             ConcatAdapter(headerAdapter, chapterAdapter)
 
+                        setupBatchBar()
+
                         lifecycleScope.launch(Dispatchers.IO) {
                             val offline =
                                 !isOnline(binding.root.context) || PrefManager.getVal(PrefName.OfflineMode)
@@ -514,6 +516,46 @@ open class MangaReadFragment : Fragment(), ScanlatorSelectionListener {
                 }
             } else {
                 continueDownload()
+            }
+        }
+    }
+
+    private fun setupBatchBar() {
+        if (!::chapterAdapter.isInitialized) return
+        chapterAdapter.onBatchSelectionChanged = { count ->
+            binding.batchBar.isVisible = count > 0 || chapterAdapter.batchMode
+            binding.batchCount.text = "$count selected"
+            if (count == 0 && !chapterAdapter.batchMode) binding.batchBar.isVisible = false
+        }
+        // Keep the bar in sync when the adapter is recreated (view/style/source change).
+        binding.batchBar.isVisible =
+            chapterAdapter.batchMode || chapterAdapter.selectedForBatch.isNotEmpty()
+        binding.batchCount.text = "${chapterAdapter.selectedForBatch.size} selected"
+        binding.batchSelectAll.setOnClickListener { chapterAdapter.selectAllBatch() }
+        binding.batchCancel.setOnClickListener {
+            chapterAdapter.exitBatchMode()
+            binding.batchBar.isVisible = false
+        }
+        binding.batchDownload.setOnClickListener {
+            val selected = chapterAdapter.selectedChapters()
+            if (selected.isEmpty()) {
+                snackString("No chapters selected")
+                return@setOnClickListener
+            }
+            // Manga downloads need no per-chapter server picker, so queue them all at once.
+            fun startBatch() {
+                selected.forEach { onMangaChapterDownloadClick(it) }
+                chapterAdapter.exitBatchMode()
+                binding.batchBar.isVisible = false
+            }
+            val activity = activity ?: return@setOnClickListener
+            if (!hasDirAccess(activity)) {
+                (activity as? MediaDetailsActivity)?.accessAlertDialog(activity.launcher) { success ->
+                    if (success) startBatch()
+                    else snackString(getString(R.string.download_permission_required))
+                } ?: snackString(getString(R.string.download_permission_required))
+            } else {
+                startBatch()
             }
         }
     }

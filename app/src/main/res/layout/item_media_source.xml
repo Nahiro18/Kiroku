@@ -235,6 +235,18 @@
                 tools:ignore="ContentDescription,ImageContrastCheck" />
 
             <ImageView
+                android:id="@+id/mediaSourceBatchDownload"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/batch_download"
+                android:padding="8dp"
+                app:srcCompat="@drawable/ic_download_24"
+                app:tint="?attr/colorOnBackground"
+                tools:ignore="ImageContrastCheck" />
+
+            <ImageView
                 android:id="@+id/mediaNestedButton"
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"

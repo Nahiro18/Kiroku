@@ -161,18 +161,19 @@ class SettingsCommonActivity : AppCompatActivity() {
                         ),
                         Settings(
                             type = 1,
-                            name = getString(R.string.download_manager_select),
-                            desc = getString(R.string.download_manager_select_desc),
+                            name = getString(R.string.parallel_downloads),
+                            desc = getString(R.string.parallel_downloads_desc),
                             icon = R.drawable.ic_download_24,
                             onClick = {
-                                val managers = arrayOf("Default", "1DM", "ADM")
+                                val counts = arrayOf("1", "2", "3", "4", "5", "6")
+                                val current = (PrefManager.getVal(PrefName.ParallelDownloads) as? Int ?: 3) - 1
                                 customAlertDialog().apply {
-                                    setTitle(getString(R.string.download_manager))
+                                    setTitle(getString(R.string.parallel_downloads))
                                     singleChoiceItems(
-                                        managers,
-                                        PrefManager.getVal(PrefName.DownloadManager),
+                                        counts,
+                                        current.coerceIn(0, counts.lastIndex),
                                     ) { count ->
-                                        PrefManager.setVal(PrefName.DownloadManager, count)
+                                        PrefManager.setVal(PrefName.ParallelDownloads, count + 1)
                                     }
                                     show()
                                 }

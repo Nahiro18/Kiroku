@@ -1,8 +1,11 @@
 package eu.kanade.tachiyomi.network.interceptor
 
 import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * An OkHttp interceptor that handles given url host's rate limiting.
@@ -25,3 +28,23 @@ fun OkHttpClient.Builder.rateLimitHost(
     period: Long = 1,
     unit: TimeUnit = TimeUnit.SECONDS,
 ) = addInterceptor(RateLimitInterceptor(httpUrl.host, permits, period, unit))
+
+/**
+ * [Duration] variant used by extensions built against extension-lib 14+.
+ */
+fun OkHttpClient.Builder.rateLimitHost(
+    httpUrl: HttpUrl,
+    permits: Int,
+    period: Duration = 1.seconds,
+) = addInterceptor(RateLimitInterceptor(httpUrl.host, permits, period.inWholeMilliseconds))
+
+/**
+ * [Duration] variant used by extensions built against extension-lib 14+, taking the url as a string.
+ */
+fun OkHttpClient.Builder.rateLimitHost(
+    url: String,
+    permits: Int,
+    period: Duration = 1.seconds,
+) = addInterceptor(
+    RateLimitInterceptor(url.toHttpUrlOrNull()?.host ?: url, permits, period.inWholeMilliseconds)
+)

@@ -204,6 +204,11 @@ class AnimeWatchAdapter(
             openSettings(fragment.requireContext(), CHANNEL_SUBSCRIPTION_CHECK)
         }
 
+        // Batch download
+        binding.mediaSourceBatchDownload.setOnClickListener {
+            fragment.showBatchDownloadSheet()
+        }
+
         // Nested Button
         binding.mediaNestedButton.setOnClickListener {
             val dialogBinding = DialogLayoutBinding.inflate(fragment.layoutInflater)

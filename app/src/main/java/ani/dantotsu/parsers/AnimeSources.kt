@@ -1,6 +1,8 @@
 package ani.dantotsu.parsers
 
 import ani.dantotsu.Lazier
+import ani.dantotsu.cloudstream.CloudStreamRuntime
+import ani.dantotsu.cloudstream.CloudStreamSourceAdapter
 import ani.dantotsu.lazyList
 import ani.dantotsu.settings.saving.PrefManager
 import ani.dantotsu.settings.saving.PrefName
@@ -11,8 +13,12 @@ import kotlinx.coroutines.flow.first
 object AnimeSources : WatchSources() {
     override var list: List<Lazier<BaseParser>> = emptyList()
     var pinnedAnimeSources: List<String> = emptyList()
+
     @Volatile
     var isInitialized = false
+
+    @Volatile
+    private var installedExtensions: List<AnimeExtension.Installed> = emptyList()
 
     suspend fun init(fromExtensions: StateFlow<List<AnimeExtension.Installed>>) {
         pinnedAnimeSources =
@@ -21,22 +27,35 @@ object AnimeSources : WatchSources() {
 
         // Initialize with the first value from StateFlow
         val initialExtensions = fromExtensions.first()
-        list = createParsersFromExtensions(initialExtensions) + Lazier(
-            { OfflineAnimeParser() },
-            "Downloaded"
-        )
+        installedExtensions = initialExtensions
+        list = buildSourceList(initialExtensions)
         isInitialized = true
 
         // Update as StateFlow emits new values
         fromExtensions.collect { extensions ->
-            list = sortPinnedAnimeSources(
-                createParsersFromExtensions(extensions),
-                pinnedAnimeSources
-            ) + Lazier(
-                { OfflineAnimeParser() },
-                "Downloaded"
-            )
+            installedExtensions = extensions
+            list = buildSourceList(extensions)
         }
+    }
+
+    /**
+     * Rebuilds the source list, for example after a CloudStream plugin was installed,
+     * updated or removed. Aniyomi extensions are preserved as they are.
+     */
+    fun refresh() {
+        if (!isInitialized) return
+        list = buildSourceList(installedExtensions)
+    }
+
+    private fun buildSourceList(extensions: List<AnimeExtension.Installed>): List<Lazier<BaseParser>> {
+        val installed = createParsersFromExtensions(extensions)
+        val takenNames = installed.mapTo(mutableSetOf()) { it.name }
+        val cloudStream = createParsersFromCloudStream().map { source ->
+            // Keep saved-source lookups unambiguous when both providers ship the same name.
+            if (takenNames.add(source.name)) source
+            else Lazier(source.factory, "${source.name} (CloudStream)")
+        }
+        return installed + cloudStream + Lazier({ OfflineAnimeParser() }, "Downloaded")
     }
 
     fun performReorderAnimeSources() {
@@ -52,6 +71,12 @@ object AnimeSources : WatchSources() {
         return extensions.map { extension ->
             val name = extension.name
             Lazier({ DynamicAnimeParser(extension) }, name)
+        }
+    }
+
+    private fun createParsersFromCloudStream(): List<Lazier<BaseParser>> {
+        return CloudStreamRuntime.providers.value.map { provider ->
+            Lazier({ CloudStreamSourceAdapter(provider) }, provider.name)
         }
     }
 

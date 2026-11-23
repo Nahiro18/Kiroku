@@ -110,6 +110,26 @@
                     app:iconPadding="16dp"
                     app:iconSize="24dp" />
 
+                <Button
+                    android:id="@+id/playerSettingsAudioLanguage"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="64dp"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="8dp"
+                    android:fontFamily="@font/poppins_bold"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:paddingHorizontal="32dp"
+                    android:text="@string/audio_and_language"
+                    android:textAlignment="viewStart"
+                    android:textAllCaps="false"
+                    android:textColor="@color/bg_opp"
+                    app:cornerRadius="0dp"
+                    app:icon="@drawable/ic_round_audiotrack_24"
+                    app:iconPadding="16dp"
+                    app:iconSize="24dp" />
+
                 <com.google.android.material.materialswitch.MaterialSwitch
                     android:id="@+id/playerSettingsCursedSpeeds"
                     android:layout_width="match_parent"

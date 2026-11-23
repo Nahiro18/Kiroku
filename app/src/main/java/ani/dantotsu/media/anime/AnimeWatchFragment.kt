@@ -28,7 +28,7 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import ani.dantotsu.R
-import ani.dantotsu.addons.download.DownloadAddonManager
+import ani.dantotsu.databinding.BottomSheetBatchDownloadBinding
 import ani.dantotsu.databinding.FragmentMediaSourceBinding
 import ani.dantotsu.download.DownloadedType
 import ani.dantotsu.download.DownloadsManager
@@ -62,6 +62,7 @@ import ani.dantotsu.util.StoragePermissions.Companion.hasDirAccess
 import ani.dantotsu.util.customAlertDialog
 import com.anggrayudi.storage.file.extension
 import com.google.android.material.appbar.AppBarLayout
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.extension.anime.model.AnimeExtension
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -97,10 +98,6 @@ class AnimeWatchFragment : Fragment() {
 
     var screenWidth = 0f
     private var progress = View.VISIBLE
-    // Batch download queue: remaining episodes to show their download selector one by one.
-    // Opened on onResume (after returning from 1DM) because showing a fragment while the app
-    // is in the background silently fails.
-    private var batchQueue: MutableList<String>? = null
 
     var continueEp: Boolean = false
     var loaded = false
@@ -220,11 +217,17 @@ class AnimeWatchFragment : Fragment() {
                         } else {
                             val eps = async {
                                 val index = media.selected!!.sourceIndex
-                                if (!model.loadEpisodes(media, index)) {
-                                    delay(12000)
-                                    if (media.selected!!.sourceIndex == index) {
-                                        model.loadEpisodes(media, index, true)
-                                    }
+                                // A source that is rate-limiting or behind a Cloudflare challenge
+                                // answers with no episodes the first time, especially while a batch
+                                // download is running. Retry a few times so the screen does not
+                                // look like the anime has no episodes at all.
+                                var ok = model.loadEpisodes(media, index)
+                                for (wait in EPISODE_RETRY_DELAYS_MS) {
+                                    if (ok || media.selected!!.sourceIndex != index) break
+                                    delay(wait)
+                                    if (media.selected!!.sourceIndex != index) break
+                                    Logger.log("Retrying episode list for ${media.mainName()}")
+                                    ok = model.loadEpisodes(media, index, true)
                                 }
                             }
                             val kitsuEpisodes = async { model.loadKitsuEpisodes(media) }
@@ -406,64 +409,89 @@ class AnimeWatchFragment : Fragment() {
             binding.batchCount.text = "$count selected"
             if (count == 0 && !episodeAdapter.batchMode) binding.batchBar.isVisible = false
         }
+        // Keep the bar in sync when the adapter is recreated (view/style/source change).
+        binding.batchBar.isVisible =
+            episodeAdapter.batchMode || episodeAdapter.selectedForBatch.isNotEmpty()
+        binding.batchCount.text = "${episodeAdapter.selectedForBatch.size} selected"
         binding.batchSelectAll.setOnClickListener { episodeAdapter.selectAllBatch() }
         binding.batchCancel.setOnClickListener {
             episodeAdapter.exitBatchMode()
             binding.batchBar.isVisible = false
         }
         binding.batchDownload.setOnClickListener {
-            val selected = episodeAdapter.selectedForBatch.sorted().toMutableList()
-            if (selected.isEmpty()) {
-                snackString("No episodes selected")
-                return@setOnClickListener
-            }
-            batchQueue = selected
-            openNextBatchDownloader()
+            startBatchDownload(episodeAdapter.selectedForBatch.toList())
         }
     }
 
     /**
-     * Opens the download selector (server picker) for the next episode in the batch queue.
-     * Called from onResume after returning from 1DM so the fragment is in the foreground;
-     * showing a BottomSheetDialogFragment while the app is backgrounded is silently dropped.
+     * Downloads the given episodes with a single server choice: the selector opens once, and the
+     * server/quality picked there is applied to every episode and queued in parallel.
      */
-    private fun openNextBatchDownloader() {
-        val queue = batchQueue ?: return
-        Logger.log("BATCH: openNextBatchDownloader queue=$queue")
-        if (queue.isEmpty()) {
-            batchQueue = null
-            episodeAdapter.exitBatchMode()
-            binding.batchBar.isVisible = false
-            Logger.log("BATCH: queue empty, exiting batch mode")
+    private fun startBatchDownload(episodes: List<String>) {
+        if (episodes.isEmpty()) {
+            snackString("No episodes selected")
             return
         }
-        val epNum = queue.removeAt(0)
-        val ep = media.anime?.episodes?.get(epNum)
-        if (ep == null) {
-            snackString("Episode $epNum not found")
-            Logger.log("BATCH: episode $epNum not found")
-            openNextBatchDownloader()
-            return
-        }
-        media.anime?.selectedEpisode = epNum
-        val manager = requireActivity().supportFragmentManager
-        val selector = SelectorDialogFragment.newInstance(
-            media.selected?.server,
-            false,
-            null,
-            isDownload = true
+        val ordered = episodes.sortedWith(
+            compareBy { MediaNameAdapter.findEpisodeNumber(it) ?: Float.MAX_VALUE }
         )
-        selector.onBatchEpisodeDownloaded = {
-            Logger.log("BATCH: episode $epNum download confirmed, advancing")
-            openNextBatchDownloader()
+        fun startBatch() {
+            media.anime?.selectedEpisode = ordered.first()
+            val selector = SelectorDialogFragment.newInstance(
+                media.selected?.server,
+                false,
+                null,
+                isDownload = true,
+                batchEpisodes = ordered.toTypedArray()
+            )
+            selector.show(requireActivity().supportFragmentManager, "dialog")
+            if (::episodeAdapter.isInitialized) episodeAdapter.exitBatchMode()
+            _binding?.batchBar?.isVisible = false
         }
-        try {
-            selector.show(manager, "dialog")
-            Logger.log("BATCH: showed selector for episode $epNum")
-        } catch (e: Exception) {
-            Logger.log("BATCH: failed to show selector for $epNum: ${e.message}")
+        val activity = activity ?: return
+        if (!hasDirAccess(activity)) {
+            (activity as? MediaDetailsActivity)?.accessAlertDialog(activity.launcher) { success ->
+                if (success) startBatch()
+                else snackString(getString(R.string.download_permission_required))
+            } ?: snackString(getString(R.string.download_permission_required))
+        } else {
+            startBatch()
         }
     }
+
+    /**
+     * Opens the batch download sheet from the download icon in the episodes header.
+     */
+    fun showBatchDownloadSheet() {
+        val allEpisodes = media.anime?.episodes?.values?.toList().orEmpty()
+        val sectionEpisodes = if (::episodeAdapter.isInitialized) episodeAdapter.arr else emptyList()
+        val watchedUpTo = media.userProgress?.toFloat() ?: 0f
+        val unwatched = allEpisodes.filter { (it.number.toFloatOrNull() ?: 0f) > watchedUpTo }
+
+        val sheet = BottomSheetBatchDownloadBinding.inflate(layoutInflater)
+        val dialog = BottomSheetDialog(requireContext())
+        dialog.setContentView(sheet.root)
+
+        sheet.batchUnwatchedCount.text = getString(R.string.n_episodes, unwatched.size)
+        sheet.batchSectionCount.text = getString(R.string.n_episodes, sectionEpisodes.size)
+        sheet.batchAllCount.text = getString(R.string.n_episodes, allEpisodes.size)
+
+        fun bind(row: View, episodes: List<Episode>) {
+            val available = episodes.isNotEmpty()
+            row.alpha = if (available) 1f else 0.4f
+            row.setOnClickListener {
+                if (!available) return@setOnClickListener
+                dialog.dismiss()
+                startBatchDownload(episodes.map { it.number })
+            }
+        }
+        bind(sheet.batchUnwatchedRow, unwatched)
+        bind(sheet.batchSectionRow, sectionEpisodes)
+        bind(sheet.batchAllRow, allEpisodes)
+
+        dialog.show()
+    }
+
 
     fun openSettings(pkg: AnimeExtension.Installed) {
         val changeUIVisibility: (Boolean) -> Unit = { show ->
@@ -614,7 +642,10 @@ class AnimeWatchFragment : Fragment() {
                     getSubDirectory(context, MediaType.ANIME, false, media.mainName(), i)
                         ?: throw Exception("Directory is null")
                 val files = directory.listFiles()
-                val videoFiles = files.filter { it.extension == "mp4" || it.extension == "mkv" }
+                val videoFiles = files.filter {
+                    it.extension == "mp4" || it.extension == "mkv" ||
+                            it.extension == "ts" || it.extension == "webm"
+                }
                 if (videoFiles.size != 1) {
                     val biggest =
                         videoFiles.filter { it.length() > 1000 }.maxByOrNull { it.length() }
@@ -632,52 +663,7 @@ class AnimeWatchFragment : Fragment() {
                     }
                     toast(context.getString(R.string.success) + " (1)")
                 } else {
-                    val ffExtension = Injekt.get<DownloadAddonManager>().extension?.extension!!
-                    val extension = ffExtension.getFileExtension()
-                    val tempFile =
-                        directory.createFile(extension.second, "temp.${extension.first}")
-                            ?: throw Exception("Temp file is null")
-                    val tempPath = ffExtension.setDownloadPath(
-                        context,
-                        tempFile.uri
-                    )
-                    val videoPath = ffExtension.getReadPath(
-                        context,
-                        videoFiles[0].uri
-                    )
-
-                    val id = ffExtension.customFFMpeg(
-                        "1", listOf(videoPath, tempPath)
-                    ) { log ->
-                        Logger.log(log)
-                    }
-                    val timeOut = System.currentTimeMillis() + 1000 * 60 * 10
-                    while (ffExtension.getState(id) != "COMPLETED") {
-                        if (ffExtension.getState(id) == "FAILED") {
-                            Logger.log("Failed to fix download")
-                            ffExtension.getStackTrace(id)?.let {
-                                Logger.log(it)
-                            }
-                            toast(R.string.failed_to_fix)
-                            return@launchIO
-                        }
-                        if (System.currentTimeMillis() > timeOut) {
-                            Logger.log("Failed to fix download: Timeout")
-                            toast(R.string.failed_to_fix)
-                            return@launchIO
-                        }
-                    }
-                    if (ffExtension.hadError(id)) {
-                        Logger.log("Failed to fix download: ${ffExtension.getStackTrace(id)}")
-                        toast(R.string.failed_to_fix)
-                        return@launchIO
-                    }
-                    val name = videoFiles[0].name
-                    if (videoFiles[0].delete().not()) {
-                        toast(R.string.delete_fail)
-                        return@launchIO
-                    }
-                    tempFile.renameTo(name!!)
+                    // Downloads are written ready to play, so there is nothing left to remux.
                     toast(context.getString(R.string.success) + " (2)")
                 }
             } catch (e: Exception) {
@@ -778,6 +764,8 @@ class AnimeWatchFragment : Fragment() {
     }
 
     companion object {
+        private val EPISODE_RETRY_DELAYS_MS = longArrayOf(8_000L, 20_000L)
+
         const val ACTION_DOWNLOAD_STARTED = "ani.dantotsu.ACTION_DOWNLOAD_STARTED"
         const val ACTION_DOWNLOAD_FINISHED = "ani.dantotsu.ACTION_DOWNLOAD_FINISHED"
         const val ACTION_DOWNLOAD_FAILED = "ani.dantotsu.ACTION_DOWNLOAD_FAILED"
