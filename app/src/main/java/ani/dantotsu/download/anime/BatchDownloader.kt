@@ -12,34 +12,38 @@ import ani.dantotsu.parsers.Video
 import ani.dantotsu.util.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Downloads a whole season with one server choice.
  *
- * Every selected episode is resolved with that same server and pushed onto the download queue; the
- * download service then runs as many of them at a time as the "Episodes downloading at once" setting
- * allows. Episodes whose server never produced a video are retried once before being reported as
- * skipped, so nothing disappears from the queue without a visible reason.
+ * Every selected episode is resolved with that same server and pushed onto the download queue in
+ * episode order: resolution runs several episodes at a time, but an episode only enters the queue
+ * once every earlier episode of the batch is already in it. That keeps "download 1-7" starting with
+ * episode 1 instead of whichever source answered first. The download service then runs as many of
+ * them at a time as the "Episodes downloading at once" setting allows.
+ *
+ * Episodes whose server produced no video are retried twice (sequentially, with a pause, so the
+ * source is not hit by a burst again) before being reported as skipped, so nothing disappears from
+ * the queue without a visible reason.
  */
 object BatchDownloader {
     /** How many episodes we resolve at once. The download service does its own throttling. */
     private const val RESOLVE_PARALLEL = 3
     private const val MAX_RESOLVE_WAIT_MS = 60_000L
+    private val RETRY_DELAYS_MS = longArrayOf(2_000L, 6_000L)
 
     private sealed class Resolved {
-        data class Ready(val video: Video, val number: String) : Resolved()
-        data class Failed(val reason: String) : Resolved()
+        data class Ready(val episode: Episode, val video: Video, val number: String) : Resolved()
+        data class Failed(val number: String, val reason: String) : Resolved()
     }
 
     fun start(
@@ -54,50 +58,88 @@ object BatchDownloader {
     ) {
         val sourceIndex = media.selected?.sourceIndex ?: 0
         val title = media.mainName()
-        val total = episodeNumbers.size
+        val order = episodeNumbers.toList()
+        val total = order.size
         val started = AtomicInteger(0)
         val skipped = AtomicInteger(0)
-        val unresolved = ConcurrentLinkedQueue<String>()
-        val reasons = ConcurrentHashMap<String, String>()
+        // Written only while the emit mutex is held, so a plain array is enough.
+        val slots = arrayOfNulls<Resolved>(total)
 
         CoroutineScope(Dispatchers.IO).launch {
             val semaphore = Semaphore(RESOLVE_PARALLEL)
-            coroutineScope {
-                episodeNumbers.map { number ->
-                    async {
-                        semaphore.withPermit {
-                            val queued = queueEpisode(
-                                activity, model, media, number, sourceIndex,
-                                extractorName, videoIndex, title, reasons
-                            )
-                            if (queued) {
-                                started.incrementAndGet()
-                            } else {
-                                unresolved.add(number)
-                            }
-                            onProgress(started.get() + skipped.get(), total)
-                        }
-                    }
-                }.awaitAll()
-            }
+            val emitLock = Mutex()
+            var emitted = 0
 
-            // One more try, one episode at a time: the first wave hits the source with three
-            // requests at once, which is exactly when a server rate-limits and returns nothing.
-            if (unresolved.isNotEmpty()) {
-                delay(1500)
-                for (number in unresolved) {
-                    val queued = withContext(Dispatchers.IO) {
-                        queueEpisode(
-                            activity, model, media, number, sourceIndex,
-                            extractorName, videoIndex, title, reasons
-                        )
-                    }
-                    if (queued) {
+            // Hands resolved episodes to the download service strictly in the batch's own order.
+            suspend fun emitInOrder() {
+                while (emitted < total) {
+                    val resolved = slots[emitted] ?: return
+                    emitted++
+                    if (deliver(activity, title, media, resolved)) {
                         started.incrementAndGet()
                     } else {
                         skipped.incrementAndGet()
                     }
                     onProgress(started.get() + skipped.get(), total)
+                }
+            }
+
+            suspend fun resolve(number: String): Resolved = semaphore.withPermit {
+                resolveEpisode(model, media, number, sourceIndex, extractorName, videoIndex)
+            }
+
+            coroutineScope {
+                order.forEachIndexed { index, number ->
+                    launch {
+                        val resolved = resolve(number)
+                        emitLock.withLock {
+                            slots[index] = resolved
+                            emitInOrder()
+                        }
+                    }
+                }
+            }
+
+            // Episodes the source refused during the parallel wave get another chance one at a
+            // time: three requests at once is exactly when a server rate-limits or challenges.
+            for ((pass, retryDelay) in RETRY_DELAYS_MS.withIndex()) {
+                val retryable = slots.indices.filter { slots[it] is Resolved.Failed }
+                if (retryable.isEmpty()) break
+                if (pass == 0) {
+                    Logger.log("BATCH: retrying ${retryable.size} unresolved episode(s)")
+                }
+                delay(retryDelay)
+
+                for (index in retryable) {
+                    val previous = slots[index] as? Resolved.Failed ?: continue
+                    val number = order[index]
+                    Logger.log("BATCH: retrying episode $number (${previous.reason})")
+                    val resolved = withContext(Dispatchers.IO) {
+                        resolveEpisode(model, media, number, sourceIndex, extractorName, videoIndex)
+                    }
+                    if (resolved is Resolved.Failed) {
+                        Logger.log(
+                            "BATCH: episode $number still unresolved after retry: ${resolved.reason}"
+                        )
+                        slots[index] = resolved
+                        continue
+                    }
+                    slots[index] = resolved
+                    if (deliver(activity, title, media, resolved)) {
+                        // It was counted as skipped when the first attempt failed.
+                        skipped.decrementAndGet()
+                        started.incrementAndGet()
+                        DownloadQueueTracker.upsert(title, number, "Queued")
+                    }
+                    onProgress(started.get() + skipped.get(), total)
+                    Logger.log("BATCH: episode $number queued on retry")
+                }
+            }
+
+            // Anything still unresolved shows up as a skipped row with its reason.
+            slots.forEachIndexed { index, resolved ->
+                if (resolved is Resolved.Failed) {
+                    reportSkipped(title, order[index], resolved.reason)
                 }
             }
 
@@ -107,53 +149,40 @@ object BatchDownloader {
         }
     }
 
-    private suspend fun queueEpisode(
+    /**
+     * Puts one resolved episode on the download queue. Returns false when it could not be queued,
+     * in which case the episode is reported as skipped.
+     */
+    private suspend fun deliver(
         activity: Activity,
-        model: MediaDetailsViewModel,
-        media: Media,
-        number: String,
-        sourceIndex: Int,
-        extractorName: String?,
-        videoIndex: Int,
         title: String,
-        reasons: MutableMap<String, String>
-    ): Boolean {
-        val episodes = media.anime?.episodes ?: return false
-        val ep = episodes[number] ?: episodes.values.firstOrNull { it.number == number }
-        if (ep == null) {
-            reasons[number] = "episode not found"
-            reportSkipped(title, number, reasons[number]!!)
-            return false
+        media: Media,
+        resolved: Resolved
+    ): Boolean = when (resolved) {
+        is Resolved.Failed -> {
+            Logger.log("BATCH: episode ${resolved.number} skipped: ${resolved.reason}")
+            reportSkipped(title, resolved.number, resolved.reason)
+            false
         }
 
-        val resolved = resolveVideo(model, ep, sourceIndex, extractorName, videoIndex)
-        if (resolved is Resolved.Failed) {
-            Logger.log("BATCH: episode $number skipped: ${resolved.reason}")
-            reasons[number] = resolved.reason
-            reportSkipped(title, number, resolved.reason)
-            return false
-        }
-        val ready = resolved as Resolved.Ready
-
-        return withContext(Dispatchers.Main) {
+        is Resolved.Ready -> withContext(Dispatchers.Main) {
             val queued = Helper.startAnimeDownloadService(
                 activity,
                 title,
-                ready.number,
-                ready.video,
+                resolved.number,
+                resolved.video,
                 emptyList(),
                 emptyList(),
                 media,
-                ep.thumb?.url ?: media.banner ?: media.cover,
+                resolved.episode.thumb?.url ?: media.banner ?: media.cover,
                 silent = true
             )
             if (queued) {
                 val broadcast = Intent(AnimeWatchFragment.ACTION_DOWNLOAD_STARTED)
-                broadcast.putExtra(AnimeWatchFragment.EXTRA_EPISODE_NUMBER, ready.number)
+                broadcast.putExtra(AnimeWatchFragment.EXTRA_EPISODE_NUMBER, resolved.number)
                 activity.sendBroadcast(broadcast)
             } else {
-                reasons[ready.number] = "already downloaded"
-                reportSkipped(title, ready.number, "already downloaded")
+                reportSkipped(title, resolved.number, "already downloaded")
             }
             queued
         }
@@ -163,14 +192,19 @@ object BatchDownloader {
         DownloadQueueTracker.upsert(title, episode, "Skipped: $reason", 0)
     }
 
-    private suspend fun resolveVideo(
+    private suspend fun resolveEpisode(
         model: MediaDetailsViewModel,
-        ep: Episode,
+        media: Media,
+        number: String,
         sourceIndex: Int,
         extractorName: String?,
         videoIndex: Int
     ): Resolved {
-        if (ep.link == null) return Resolved.Failed("no episode link")
+        val episodes = media.anime?.episodes ?: return Resolved.Failed(number, "no episode list")
+        val ep = episodes[number] ?: episodes.values.firstOrNull { it.number == number }
+            ?: return Resolved.Failed(number, "episode not found")
+        if (ep.link == null) return Resolved.Failed(number, "no episode link")
+
         try {
             model.loadEpisodeVideos(ep, sourceIndex, post = true, force = true)
         } catch (e: Exception) {
@@ -184,17 +218,20 @@ object BatchDownloader {
 
         val extractors = ep.extractors.orEmpty().filter { it.videos.isNotEmpty() }
         if (extractors.isEmpty()) {
-            return Resolved.Failed(if (model.isEpisodeLoading(ep)) "server timed out" else "no videos on this server")
+            return Resolved.Failed(
+                number,
+                if (model.isEpisodeLoading(ep)) "server timed out" else "no videos on this server"
+            )
         }
         val extractor = extractors.firstOrNull { it.server.name == extractorName } ?: extractors.first()
         val video = extractor.videos.getOrNull(videoIndex) ?: extractor.videos.first()
         // Torrent entries need the torrent add-on to be resolved first, which the batch cannot do
         // silently; skip them instead of queueing a download that would always fail.
         if (video.file.url.startsWith("magnet:") || video.file.url.endsWith(".torrent")) {
-            return Resolved.Failed("torrent link")
+            return Resolved.Failed(number, "torrent link")
         }
         ep.selectedExtractor = extractor.server.name
         ep.selectedVideo = extractor.videos.indexOf(video)
-        return Resolved.Ready(video, ep.number)
+        return Resolved.Ready(ep, video, ep.number)
     }
 }

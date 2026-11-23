@@ -217,11 +217,17 @@ class AnimeWatchFragment : Fragment() {
                         } else {
                             val eps = async {
                                 val index = media.selected!!.sourceIndex
-                                if (!model.loadEpisodes(media, index)) {
-                                    delay(12000)
-                                    if (media.selected!!.sourceIndex == index) {
-                                        model.loadEpisodes(media, index, true)
-                                    }
+                                // A source that is rate-limiting or behind a Cloudflare challenge
+                                // answers with no episodes the first time, especially while a batch
+                                // download is running. Retry a few times so the screen does not
+                                // look like the anime has no episodes at all.
+                                var ok = model.loadEpisodes(media, index)
+                                for (wait in EPISODE_RETRY_DELAYS_MS) {
+                                    if (ok || media.selected!!.sourceIndex != index) break
+                                    delay(wait)
+                                    if (media.selected!!.sourceIndex != index) break
+                                    Logger.log("Retrying episode list for ${media.mainName()}")
+                                    ok = model.loadEpisodes(media, index, true)
                                 }
                             }
                             val kitsuEpisodes = async { model.loadKitsuEpisodes(media) }
@@ -758,6 +764,8 @@ class AnimeWatchFragment : Fragment() {
     }
 
     companion object {
+        private val EPISODE_RETRY_DELAYS_MS = longArrayOf(8_000L, 20_000L)
+
         const val ACTION_DOWNLOAD_STARTED = "ani.dantotsu.ACTION_DOWNLOAD_STARTED"
         const val ACTION_DOWNLOAD_FINISHED = "ani.dantotsu.ACTION_DOWNLOAD_FINISHED"
         const val ACTION_DOWNLOAD_FAILED = "ani.dantotsu.ACTION_DOWNLOAD_FAILED"
