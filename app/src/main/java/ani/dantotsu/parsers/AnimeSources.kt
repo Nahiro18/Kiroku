@@ -48,9 +48,14 @@ object AnimeSources : WatchSources() {
     }
 
     private fun buildSourceList(extensions: List<AnimeExtension.Installed>): List<Lazier<BaseParser>> {
-        return createParsersFromExtensions(extensions) +
-            createParsersFromCloudStream() +
-            Lazier({ OfflineAnimeParser() }, "Downloaded")
+        val installed = createParsersFromExtensions(extensions)
+        val takenNames = installed.mapTo(mutableSetOf()) { it.name }
+        val cloudStream = createParsersFromCloudStream().map { source ->
+            // Keep saved-source lookups unambiguous when both providers ship the same name.
+            if (takenNames.add(source.name)) source
+            else Lazier(source.factory, "${source.name} (CloudStream)")
+        }
+        return installed + cloudStream + Lazier({ OfflineAnimeParser() }, "Downloaded")
     }
 
     fun performReorderAnimeSources() {
